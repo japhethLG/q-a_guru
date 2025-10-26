@@ -22,8 +22,6 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 }) => {
 	const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
 
-	// When using flex-1, we need to apply it conditionally based on collapsed state
-	// to allow the parent to properly collapse
 	const baseClasses = 'p-4 bg-gray-800 rounded-lg shadow-lg';
 	const flexClassName = className.includes('flex-1')
 		? isCollapsed
@@ -64,7 +62,11 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 					)}
 				</button>
 			</div>
-			{!isCollapsed && <div className={contentClassName || ''}>{children}</div>}
+			{!isCollapsed && (
+				<div className={`overflow-y-auto h-full ${contentClassName || ''}`}>
+					{children}
+				</div>
+			)}
 		</div>
 	);
 };
