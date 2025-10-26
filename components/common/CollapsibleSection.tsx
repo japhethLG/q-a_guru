@@ -8,6 +8,7 @@ interface CollapsibleSectionProps {
 	icon?: React.ReactNode;
 	className?: string;
 	headerClassName?: string;
+	contentClassName?: string;
 }
 
 export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
@@ -17,6 +18,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 	icon,
 	className = '',
 	headerClassName = '',
+	contentClassName = '',
 }) => {
 	const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
 
@@ -62,7 +64,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 					)}
 				</button>
 			</div>
-			{!isCollapsed && children}
+			{!isCollapsed && <div className={contentClassName || ''}>{children}</div>}
 		</div>
 	);
 };

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import { getChatResponse } from '../services/gemini';
-import { LoaderIcon, WandIcon } from './Icons';
+import { LoaderIcon, WandIcon } from './common/Icons';
 import { ContextDisplay } from './ContextDisplay';
+import { Button, Textarea } from './common';
 
 interface ChatSectionProps {
 	documentsContent: string[];
@@ -24,6 +25,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	const [isLoading, setIsLoading] = useState(false);
 	const [contextText, setContextText] = useState('');
 	const messagesEndRef = useRef<HTMLDivElement>(null);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	useEffect(() => {
 		setContextText(selectedText);
@@ -32,6 +34,14 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	}, [messages]);
+
+	useEffect(() => {
+		const textarea = textareaRef.current;
+		if (textarea) {
+			textarea.style.height = 'auto';
+			textarea.style.height = `${textarea.scrollHeight}px`;
+		}
+	}, [input]);
 
 	const handleSendMessage = async (prompt?: string) => {
 		const messageToSend = prompt || input;
@@ -174,34 +184,43 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				{contextText && (
 					<div className="grid grid-cols-3 gap-2 mb-2">
 						{actionButtons.map((btn) => (
-							<button
+							<Button
 								key={btn.label}
+								variant="secondary"
+								size="sm"
 								onClick={() => handleSendMessage(btn.prompt)}
 								disabled={isLoading}
-								className="text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600/50 p-2 rounded-md transition-colors"
 							>
 								{btn.label}
-							</button>
+							</Button>
 						))}
 					</div>
 				)}
-				<div className="flex gap-2">
-					<input
-						type="text"
+				<div className="flex gap-2 items-start">
+					<Textarea
+						ref={textareaRef}
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
-						onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+								e.preventDefault();
+								handleSendMessage();
+							}
+						}}
 						placeholder={contextText ? 'Ask about selection...' : 'Ask a question...'}
-						className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-cyan-500 focus:outline-none"
 						disabled={isLoading}
+						rows={1}
+						size="md"
+						className="max-h-[200px] overflow-y-auto"
 					/>
-					<button
-						onClick={() => handleSendMessage()}
+					<Button
+						variant="primary"
 						disabled={isLoading || !input.trim()}
-						className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold p-2 rounded-md transition-colors flex items-center justify-center w-20"
+						loading={isLoading}
+						onClick={() => handleSendMessage()}
 					>
-						{isLoading ? <LoaderIcon className="h-5 w-5 animate-spin" /> : 'Send'}
-					</button>
+						Send
+					</Button>
 				</div>
 			</div>
 		</div>

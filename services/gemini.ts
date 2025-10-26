@@ -127,6 +127,7 @@ export const getChatResponse = async (
 ): Promise<GenerateContentResponse> => {
 	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+
 	let systemInstruction = `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
 
 Formatting Rules:

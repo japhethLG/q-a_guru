@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileTextIcon, SparklesIcon } from './Icons';
+import { FileTextIcon, SparklesIcon } from './common/Icons';
 
 export const Header: React.FC = () => {
 	return (

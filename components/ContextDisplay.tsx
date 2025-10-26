@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WandIcon, XIcon } from './Icons';
+import { WandIcon, XIcon } from './common/Icons';
 
 interface ContextDisplayProps {
 	contextText: string;

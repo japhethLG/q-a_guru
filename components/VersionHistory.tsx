@@ -1,7 +1,7 @@
 import React from 'react';
 import { DocumentVersion } from '../types';
-import { HistoryIcon, TrashIcon } from './Icons';
-import { CollapsibleSection } from './CollapsibleSection';
+import { HistoryIcon, TrashIcon } from './common/Icons';
+import { CollapsibleSection } from './common';
 
 interface VersionHistoryProps {
 	versions: DocumentVersion[];

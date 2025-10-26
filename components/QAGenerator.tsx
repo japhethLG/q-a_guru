@@ -6,7 +6,6 @@ import { FileUploadSection } from './FileUploadSection';
 import { ConfigSection } from './ConfigSection';
 import { EditorSection } from './EditorSection';
 import { ChatSection } from './ChatSection';
-import { VersionHistory } from './VersionHistory';
 
 export const QAGenerator: React.FC = () => {
 	const [files, setFiles] = useState<File[]>([]);
@@ -48,7 +47,8 @@ export const QAGenerator: React.FC = () => {
 		const selectedFiles = Array.from(e.target.files || []) as File[];
 		if (selectedFiles.length === 0) return;
 
-		setFiles((prev) => [...prev, ...selectedFiles]);
+		// Don't update files here - FileUploadSection manages that
+		// Just parse the new files and update documentsContent
 		setIsParsing(true);
 
 		try {
@@ -61,6 +61,7 @@ export const QAGenerator: React.FC = () => {
 			alert(
 				'There was an error parsing one or more files. Please check the console.'
 			);
+			// Also need to remove the files that failed to parse
 			setFiles((prev) => prev.filter((f) => !selectedFiles.includes(f)));
 		} finally {
 			setIsParsing(false);
@@ -185,15 +186,6 @@ export const QAGenerator: React.FC = () => {
 					isGenerating={isGenerating}
 					isDisabled={files.length === 0 || isParsing || isGenerating}
 				/>
-				<VersionHistory
-					versions={versionHistory}
-					currentVersionId={currentVersionId}
-					previewVersionId={previewVersionId}
-					onPreview={handlePreview}
-					onRevert={handleRevert}
-					onDelete={handleDeleteVersion}
-					onExitPreview={handleExitPreview}
-				/>
 			</div>
 
 			<div className="xl:col-span-9 grid grid-cols-1 grid-rows-2 lg:grid-rows-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
@@ -207,6 +199,12 @@ export const QAGenerator: React.FC = () => {
 						onExitPreview={handleExitPreview}
 						onSave={handleSaveVersion}
 						isEditorDirty={isEditorDirty}
+						versions={versionHistory}
+						currentVersionId={currentVersionId}
+						previewVersionId={previewVersionId}
+						onPreview={handlePreview}
+						onRevert={handleRevert}
+						onDelete={handleDeleteVersion}
 					/>
 				</div>
 				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">

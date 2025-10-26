@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { DownloadFormat, DocumentVersion } from '../types';
-import { HistoryIcon, SaveIcon, DownloadIcon, XIcon } from './Icons';
+import { SaveIcon, XIcon } from './common/Icons';
+import { Button, DownloadsDropdown, VersionsDropdown } from './common';
 
 declare const Quill: any;
 declare const TurndownService: any;
@@ -16,6 +17,12 @@ interface EditorSectionProps {
 	onExitPreview: () => void;
 	onSave?: () => void;
 	isEditorDirty?: boolean;
+	versions: DocumentVersion[];
+	currentVersionId: string | null;
+	previewVersionId: string | null;
+	onPreview: (versionId: string) => void;
+	onRevert: (versionId: string) => void;
+	onDelete: (versionId: string) => void;
 }
 
 const toolbarOptions = [
@@ -42,9 +49,16 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	onExitPreview,
 	onSave,
 	isEditorDirty = false,
+	versions,
+	currentVersionId,
+	previewVersionId,
+	onPreview,
+	onRevert,
+	onDelete,
 }) => {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const quillInstanceRef = useRef<any>(null);
+	const [isVersionDropdownOpen, setIsVersionDropdownOpen] = useState(false);
 
 	useEffect(() => {
 		if (editorRef.current && !quillInstanceRef.current) {
@@ -174,47 +188,30 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 			<div className="flex justify-between items-center p-3 border-b border-gray-700 flex-shrink-0">
 				<h3 className="text-lg font-semibold text-cyan-400">Document Editor</h3>
 				<div className="flex items-center gap-2">
+					<VersionsDropdown
+						versions={versions}
+						currentVersionId={currentVersionId}
+						previewVersionId={previewVersionId}
+						onPreview={onPreview}
+						onRevert={onRevert}
+						onDelete={onDelete}
+						onExitPreview={onExitPreview}
+						onOpenChange={setIsVersionDropdownOpen}
+						isOpen={isVersionDropdownOpen}
+					/>
+
 					{onSave && (
-						<button
-							onClick={onSave}
+						<Button
+							variant="icon"
 							disabled={!isEditorDirty}
-							className="p-2 hover:bg-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+							onClick={onSave}
 							title={isEditorDirty ? 'Save current version' : 'No changes to save'}
 						>
 							<SaveIcon className="h-5 w-5" />
-						</button>
+						</Button>
 					)}
-					<div className="relative group">
-						<button className="p-2 hover:bg-gray-700 rounded-md" title="Download">
-							<DownloadIcon className="h-5 w-5" />
-						</button>
-						<div className="absolute right-0 mt-2 w-28 bg-gray-700 border border-gray-600 rounded-md shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-opacity duration-200 z-20">
-							<a
-								onClick={() => handleDownload('pdf')}
-								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-							>
-								PDF
-							</a>
-							<a
-								onClick={() => handleDownload('docx')}
-								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-							>
-								DOCX
-							</a>
-							<a
-								onClick={() => handleDownload('md')}
-								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-							>
-								Markdown
-							</a>
-							<a
-								onClick={() => handleDownload('txt')}
-								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-							>
-								TXT
-							</a>
-						</div>
-					</div>
+
+					<DownloadsDropdown onDownload={handleDownload} />
 				</div>
 			</div>
 
