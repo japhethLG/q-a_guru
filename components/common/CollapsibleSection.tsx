@@ -63,9 +63,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 				</button>
 			</div>
 			{!isCollapsed && (
-				<div className={`overflow-y-auto h-full ${contentClassName || ''}`}>
-					{children}
-				</div>
+				<div className={`${contentClassName || ''}`}>{children}</div>
 			)}
 		</div>
 	);

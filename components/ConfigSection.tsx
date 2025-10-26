@@ -33,76 +33,77 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 			className="flex-1 min-h-0 flex flex-col"
 			contentClassName="flex-1 flex flex-col min-h-0"
 		>
-			<div className="space-y-4 flex-1 flex flex-col">
-				<Input
-					label="API Key (Optional)"
-					type="password"
-					value={qaConfig.apiKey || ''}
-					onChange={(e) => setQaConfig((c) => ({ ...c, apiKey: e.target.value }))}
-					placeholder="Leave empty to use environment variable"
-				/>
-				<Select
-					label="Model"
-					options={[
-						{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-						{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-						{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-					]}
-					value={qaConfig.model}
-					onChange={(e) =>
-						setQaConfig((c) => ({
-							...c,
-							model: e.target.value as QaConfig['model'],
-						}))
-					}
-				/>
-				<Select
-					label="Question Type"
-					options={[
-						{ value: 'mixed', label: 'Mixed' },
-						{ value: 'multiple choice', label: 'Multiple Choice' },
-						{ value: 'true/false', label: 'True/False' },
-						{ value: 'short answer', label: 'Short Answer' },
-						{ value: 'essay', label: 'Essay' },
-					]}
-					value={qaConfig.type}
-					onChange={(e) =>
-						setQaConfig((c) => ({ ...c, type: e.target.value as QaConfig['type'] }))
-					}
-				/>
-				<NumberInput
-					label="Number of Questions"
-					value={qaConfig.count}
-					onChange={(value) => setQaConfig((c) => ({ ...c, count: value }))}
-					min={1}
-					step={1}
-					showInput={true}
-				/>
-				<div>
-					<label className="text-sm font-medium">Difficulty</label>
-					<div className="flex space-x-2 mt-1">
-						{(['easy', 'medium', 'hard'] as const).map((d) => (
-							<Button
-								key={d}
-								onClick={() => setQaConfig((c) => ({ ...c, difficulty: d }))}
-								variant={qaConfig.difficulty === d ? 'primary' : 'secondary'}
-								className="flex-1"
-							>
-								{d}
-							</Button>
-						))}
+			<div className="flex-1 flex flex-col min-h-0">
+				<div className="space-y-4 overflow-y-auto flex-1 pr-2">
+					<Input
+						label="API Key (Optional)"
+						type="password"
+						value={qaConfig.apiKey || ''}
+						onChange={(e) => setQaConfig((c) => ({ ...c, apiKey: e.target.value }))}
+						placeholder="Leave empty to use environment variable"
+					/>
+					<Select
+						label="Model"
+						options={[
+							{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+							{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+							{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+						]}
+						value={qaConfig.model}
+						onChange={(e) =>
+							setQaConfig((c) => ({
+								...c,
+								model: e.target.value as QaConfig['model'],
+							}))
+						}
+					/>
+					<Select
+						label="Question Type"
+						options={[
+							{ value: 'mixed', label: 'Mixed' },
+							{ value: 'multiple choice', label: 'Multiple Choice' },
+							{ value: 'true/false', label: 'True/False' },
+							{ value: 'short answer', label: 'Short Answer' },
+							{ value: 'essay', label: 'Essay' },
+						]}
+						value={qaConfig.type}
+						onChange={(e) =>
+							setQaConfig((c) => ({ ...c, type: e.target.value as QaConfig['type'] }))
+						}
+					/>
+					<NumberInput
+						label="Number of Questions"
+						value={qaConfig.count}
+						onChange={(value) => setQaConfig((c) => ({ ...c, count: value }))}
+						min={1}
+						step={1}
+						showInput={true}
+					/>
+					<div>
+						<label className="text-sm font-medium">Difficulty</label>
+						<div className="flex space-x-2 mt-1">
+							{(['easy', 'medium', 'hard'] as const).map((d) => (
+								<Button
+									key={d}
+									onClick={() => setQaConfig((c) => ({ ...c, difficulty: d }))}
+									variant={qaConfig.difficulty === d ? 'primary' : 'secondary'}
+									className="flex-1"
+								>
+									{d}
+								</Button>
+							))}
+						</div>
 					</div>
+					<Textarea
+						label="Additional Instructions"
+						value={qaConfig.instructions}
+						onChange={(e) =>
+							setQaConfig((c) => ({ ...c, instructions: e.target.value }))
+						}
+						rows={3}
+						placeholder="e.g., Focus on dates and names..."
+					/>
 				</div>
-				<Textarea
-					label="Additional Instructions"
-					value={qaConfig.instructions}
-					onChange={(e) =>
-						setQaConfig((c) => ({ ...c, instructions: e.target.value }))
-					}
-					rows={3}
-					placeholder="e.g., Focus on dates and names..."
-					className="flex-1"
-				/>
 				<Button
 					variant={isGenerating && onStop ? 'danger' : 'primary'}
 					disabled={isGenerating && onStop ? false : isDisabled}
@@ -115,7 +116,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 							<SparklesIcon className="h-5 w-5" />
 						)
 					}
-					className="w-full"
+					className="w-full mt-4"
 				>
 					{isGenerating && onStop
 						? 'Stop Generation'
