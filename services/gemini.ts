@@ -4,16 +4,18 @@ import {
 	Type,
 	GenerateContentResponse,
 } from '@google/genai';
-import { QaConfig, ChatMessage } from '../types';
+import { QaConfig, ChatConfig, ChatMessage } from '../types';
 
 /**
  * Generates questions and answers based on provided documents and configuration.
+ * Returns an async generator that yields streaming responses.
  */
-export const generateQa = async (
+export const generateQaStream = async function* (
 	documents: string[],
 	config: QaConfig,
-	apiKey?: string
-): Promise<string> => {
+	apiKey?: string,
+	signal?: AbortSignal
+): AsyncGenerator<GenerateContentResponse, void, unknown> {
 	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 	const combinedDocuments = documents.join('\n\n---\n\n');
@@ -35,17 +37,26 @@ export const generateQa = async (
     `;
 
 	try {
-		// Per guidelines, use generateContent for text answers.
-		const response = await ai.models.generateContent({
-			// Per guidelines, use 'gemini-2.5-flash' for Basic Text Tasks.
-			model: 'gemini-2.5-flash',
+		// Use generateContentStream for streaming responses
+		const response = ai.models.generateContentStream({
+			// Use model from config
+			model: config.model,
 			contents: prompt,
 		});
-		// Per guidelines, extract text output via the .text property.
-		return response.text;
+
+		for await (const chunk of await response) {
+			if (signal?.aborted) {
+				break;
+			}
+			yield chunk;
+		}
 	} catch (error) {
+		// Check if it was an abort error
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw error;
+		}
 		console.error('Error generating Q&A:', error);
-		return '<p><strong>Error:</strong> Failed to generate Q&A. Please check the console for details.</p>';
+		throw error;
 	}
 };
 
@@ -120,7 +131,12 @@ const editDocumentTool: FunctionDeclaration = {
 export const getReflectionStream = async function* (
 	history: ChatMessage[],
 	toolResult: string,
-	apiKey?: string
+	apiKey?: string,
+	model:
+		| 'gemini-2.5-pro'
+		| 'gemini-2.5-flash'
+		| 'gemini-2.5-flash-lite' = 'gemini-2.5-pro',
+	signal?: AbortSignal
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
 	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
@@ -162,7 +178,7 @@ Remember: This is a continuation, not a new conversation. Do NOT repeat what you
 
 	try {
 		const response = ai.models.generateContentStream({
-			model: 'gemini-2.5-pro',
+			model: model,
 			contents: contents,
 			config: {
 				systemInstruction: systemInstruction,
@@ -170,9 +186,15 @@ Remember: This is a continuation, not a new conversation. Do NOT repeat what you
 		});
 
 		for await (const chunk of await response) {
+			if (signal?.aborted) {
+				break;
+			}
 			yield chunk;
 		}
 	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw error;
+		}
 		console.error('Error in reflection:', error);
 		throw error;
 	}
@@ -188,7 +210,12 @@ export const getChatResponseStream = async function* (
 	sourceDocuments: string[],
 	documentHtml?: string,
 	selectedText?: string,
-	apiKey?: string
+	apiKey?: string,
+	model:
+		| 'gemini-2.5-pro'
+		| 'gemini-2.5-flash'
+		| 'gemini-2.5-flash-lite' = 'gemini-2.5-pro',
+	signal?: AbortSignal
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
 	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
@@ -329,7 +356,7 @@ When using edit_document tool:
 
 	try {
 		const response = ai.models.generateContentStream({
-			model: 'gemini-2.5-pro',
+			model: model,
 			contents: contents,
 			config: {
 				systemInstruction: systemInstruction,
@@ -342,9 +369,15 @@ When using edit_document tool:
 		});
 
 		for await (const chunk of await response) {
+			if (signal?.aborted) {
+				break;
+			}
 			yield chunk;
 		}
 	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw error;
+		}
 		console.error('Error in chat:', error);
 		// Re-throw to be handled by the UI component
 		throw error;

@@ -14,6 +14,7 @@ interface ConfigSectionProps {
 	qaConfig: QaConfig;
 	setQaConfig: React.Dispatch<React.SetStateAction<QaConfig>>;
 	onGenerate: () => void;
+	onStop?: () => void;
 	isGenerating: boolean;
 	isDisabled: boolean;
 }
@@ -22,6 +23,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	qaConfig,
 	setQaConfig,
 	onGenerate,
+	onStop,
 	isGenerating,
 	isDisabled,
 }) => {
@@ -38,6 +40,21 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					value={qaConfig.apiKey || ''}
 					onChange={(e) => setQaConfig((c) => ({ ...c, apiKey: e.target.value }))}
 					placeholder="Leave empty to use environment variable"
+				/>
+				<Select
+					label="Model"
+					options={[
+						{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+						{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+						{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+					]}
+					value={qaConfig.model}
+					onChange={(e) =>
+						setQaConfig((c) => ({
+							...c,
+							model: e.target.value as QaConfig['model'],
+						}))
+					}
 				/>
 				<Select
 					label="Question Type"
@@ -87,12 +104,12 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					className="flex-1"
 				/>
 				<Button
-					variant="primary"
-					disabled={isDisabled}
-					loading={isGenerating}
-					onClick={onGenerate}
+					variant={isGenerating && onStop ? 'danger' : 'primary'}
+					disabled={isGenerating && onStop ? false : isDisabled}
+					loading={isGenerating && !onStop}
+					onClick={isGenerating && onStop ? onStop : onGenerate}
 					icon={
-						isGenerating ? (
+						isGenerating && onStop ? null : isGenerating ? (
 							<LoaderIcon className="h-5 w-5" />
 						) : (
 							<SparklesIcon className="h-5 w-5" />
@@ -100,7 +117,11 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					}
 					className="w-full"
 				>
-					{isGenerating ? 'Generating...' : 'Generate Q&A'}
+					{isGenerating && onStop
+						? 'Stop Generation'
+						: isGenerating
+							? 'Generating...'
+							: 'Generate Q&A'}
 				</Button>
 			</div>
 		</CollapsibleSection>

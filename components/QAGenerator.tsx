@@ -1,7 +1,7 @@
-import React, { useState, ChangeEvent, useEffect } from 'react';
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { QaConfig, DocumentVersion } from '../types';
 import { parseFile } from '../services/parser';
-import { generateQa } from '../services/gemini';
+import { generateQaStream } from '../services/gemini';
 import { FileUploadSection } from './FileUploadSection';
 import { ConfigSection } from './ConfigSection';
 import { EditorSection } from './EditorSection';
@@ -15,12 +15,14 @@ export const QAGenerator: React.FC = () => {
 		type: 'mixed',
 		difficulty: 'medium',
 		instructions: '',
+		model: 'gemini-2.5-flash',
 	});
 	const [editorContent, setEditorContent] = useState<string>('');
 	const [isParsing, setIsParsing] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [selectedText, setSelectedText] = useState('');
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
+	const abortControllerRef = useRef<AbortController | null>(null);
 
 	const [versionHistory, setVersionHistory] = useState<DocumentVersion[]>([]);
 	const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
@@ -86,24 +88,66 @@ export const QAGenerator: React.FC = () => {
 		}
 		setIsGenerating(true);
 		setEditorContent('');
-		const resultHtml = await generateQa(
-			documentsContent,
-			qaConfig,
-			qaConfig.apiKey
-		);
 
-		const initialVersion: DocumentVersion = {
-			id: crypto.randomUUID(),
-			timestamp: Date.now(),
-			content: resultHtml,
-			reason: 'Initial generation',
-		};
-		setVersionHistory([initialVersion]);
-		setCurrentVersionId(initialVersion.id);
-		setEditorContent(resultHtml);
-		setIsEditorDirty(false);
-		setPreviewVersionId(null);
-		setIsGenerating(false);
+		// Create new AbortController for this generation
+		abortControllerRef.current = new AbortController();
+
+		try {
+			const responseStream = generateQaStream(
+				documentsContent,
+				qaConfig,
+				qaConfig.apiKey,
+				abortControllerRef.current.signal
+			);
+
+			// Accumulate streaming text
+			let accumulatedText = '';
+
+			for await (const chunk of await responseStream) {
+				// Check if aborted
+				if (abortControllerRef.current?.signal.aborted) {
+					break;
+				}
+
+				if (chunk.text) {
+					accumulatedText += chunk.text;
+					setEditorContent(accumulatedText);
+				}
+			}
+
+			// Only create version if not aborted
+			if (!abortControllerRef.current?.signal.aborted && accumulatedText) {
+				const initialVersion: DocumentVersion = {
+					id: crypto.randomUUID(),
+					timestamp: Date.now(),
+					content: accumulatedText,
+					reason: 'Initial generation',
+				};
+				setVersionHistory([initialVersion]);
+				setCurrentVersionId(initialVersion.id);
+				setIsEditorDirty(false);
+				setPreviewVersionId(null);
+			}
+		} catch (error) {
+			// Check if it was an abort error
+			if (error instanceof Error && error.name === 'AbortError') {
+				console.log('Generation aborted by user');
+			} else {
+				console.error('Error generating Q&A:', error);
+				setEditorContent(
+					'<p><strong>Error:</strong> Failed to generate Q&A. Please check the console for details.</p>'
+				);
+			}
+		} finally {
+			setIsGenerating(false);
+			abortControllerRef.current = null;
+		}
+	};
+
+	const handleStopGeneration = () => {
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
+		}
 	};
 
 	const handleDocumentEdit = (newHtml: string, reason: string) => {
@@ -194,6 +238,7 @@ export const QAGenerator: React.FC = () => {
 					qaConfig={qaConfig}
 					setQaConfig={setQaConfig}
 					onGenerate={handleGenerate}
+					onStop={handleStopGeneration}
 					isGenerating={isGenerating}
 					isDisabled={files.length === 0 || isParsing || isGenerating}
 				/>

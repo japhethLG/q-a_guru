@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
+import { ChatMessage, ChatConfig } from '../types';
 import { getChatResponseStream, getReflectionStream } from '../services/gemini';
 import { LoaderIcon, WandIcon, RefreshCwIcon } from './common/Icons';
 import { ContextDisplay } from './ContextDisplay';
-import { Button, Textarea, ChatMessageContent } from './common';
+import { Button, Textarea, ChatMessageContent, Select } from './common';
 
 interface ChatSectionProps {
 	documentsContent: string[];
@@ -29,6 +29,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	const [isLoading, setIsLoading] = useState(false);
 	const [isStreamingText, setIsStreamingText] = useState(false);
 	const [contextText, setContextText] = useState('');
+	const [chatConfig, setChatConfig] = useState<ChatConfig>({
+		model: 'gemini-2.5-pro',
+	});
+	const abortControllerRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,6 +62,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		setIsLoading(true);
 		setIsStreamingText(true);
 
+		// Create new AbortController for this message
+		abortControllerRef.current = new AbortController();
+
 		// Create a placeholder for the model's streaming response with loading indicator
 		setMessages((prev) => [...prev, { role: 'model', content: '' }]);
 
@@ -68,7 +75,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				documentsContent,
 				documentHtml,
 				contextText,
-				apiKey
+				apiKey,
+				chatConfig.model,
+				abortControllerRef.current.signal
 			);
 
 			// Accumulate chunks and aggregate the final response
@@ -77,6 +86,11 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			let isFirstChunk = true;
 
 			for await (const chunk of await responseStream) {
+				// Check if aborted
+				if (abortControllerRef.current?.signal.aborted) {
+					break;
+				}
+
 				fullResponse = chunk; // Store the latest chunk
 
 				// Accumulate text for streaming display
@@ -258,7 +272,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 							const reflectionStream = getReflectionStream(
 								conversationHistory,
 								toolResultMessage,
-								apiKey
+								apiKey,
+								chatConfig.model,
+								abortControllerRef.current.signal
 							);
 
 							// Stream the reflection
@@ -299,16 +315,28 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			}
 			// Streaming text has already been accumulated, so no need to add it again
 		} catch (error) {
-			console.error('Chat error:', error);
-			const errorMessage: ChatMessage = {
-				role: 'model',
-				content: "Sorry, I couldn't get a response. Please try again.",
-			};
-			setMessages((prev) => [...prev, errorMessage]);
+			// Check if it was an abort error
+			if (error instanceof Error && error.name === 'AbortError') {
+				console.log('Chat aborted by user');
+			} else {
+				console.error('Chat error:', error);
+				const errorMessage: ChatMessage = {
+					role: 'model',
+					content: "Sorry, I couldn't get a response. Please try again.",
+				};
+				setMessages((prev) => [...prev, errorMessage]);
+			}
 		} finally {
 			// Only turn off loading after everything is complete (both AI calls + tool execution)
 			setIsLoading(false);
 			setIsStreamingText(false);
+			abortControllerRef.current = null;
+		}
+	};
+
+	const handleStopGeneration = () => {
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
 		}
 	};
 
@@ -329,18 +357,36 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 
 	return (
 		<div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg overflow-hidden w-full">
-			<div className="p-3 border-b border-gray-700 flex items-center justify-between">
-				<h3 className="text-lg font-semibold text-cyan-400">AI Assistant</h3>
-				{messages.length > 0 && (
-					<button
-						onClick={handleResetChat}
-						className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors rounded hover:bg-gray-700"
-						title="Clear chat history"
-						disabled={isLoading}
-					>
-						<RefreshCwIcon className="h-5 w-5" />
-					</button>
-				)}
+			<div className="p-3 border-b border-gray-700 space-y-2">
+				<div className="flex items-center justify-between">
+					<h3 className="text-lg font-semibold text-cyan-400">AI Assistant</h3>
+					{messages.length > 0 && (
+						<button
+							onClick={handleResetChat}
+							className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors rounded hover:bg-gray-700"
+							title="Clear chat history"
+							disabled={isLoading}
+						>
+							<RefreshCwIcon className="h-5 w-5" />
+						</button>
+					)}
+				</div>
+				<Select
+					label="Model"
+					size="sm"
+					options={[
+						{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+						{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+						{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+					]}
+					value={chatConfig.model}
+					onChange={(e) =>
+						setChatConfig({
+							model: e.target.value as ChatConfig['model'],
+						})
+					}
+					disabled={isLoading}
+				/>
 			</div>
 
 			<div className="flex-grow p-3 space-y-3 overflow-y-auto overflow-x-hidden">
@@ -430,13 +476,12 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 						className="max-h-[200px] overflow-y-auto"
 					/>
 					<Button
-						variant="primary"
-						disabled={isLoading || !input.trim()}
-						loading={isLoading}
-						onClick={() => handleSendMessage()}
+						variant={isLoading ? 'danger' : 'primary'}
+						disabled={isLoading ? false : !input.trim()}
+						onClick={isLoading ? handleStopGeneration : () => handleSendMessage()}
 						className="h-full"
 					>
-						Send
+						{isLoading ? 'Stop' : 'Send'}
 					</Button>
 				</div>
 			</div>
