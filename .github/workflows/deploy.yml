@@ -21,6 +21,15 @@ jobs:
    - name: Checkout repository
      uses: actions/checkout@v4
 
+   - name: Validate required secrets
+     run: |
+      if [ -z "${{ secrets.VITE_GEMINI_API_KEY }}" ]; then
+        echo "❌ Error: VITE_GEMINI_API_KEY secret is not set or is empty"
+        echo "Please add the VITE_GEMINI_API_KEY secret to your repository settings"
+        exit 1
+      fi
+      echo "✅ VITE_GEMINI_API_KEY is set"
+
    - name: Set up Node.js
      uses: actions/setup-node@v4
      with:
