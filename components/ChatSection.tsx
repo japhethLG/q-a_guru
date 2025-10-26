@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import { getChatResponse } from '../services/gemini';
-import { LoaderIcon, WandIcon } from './common/Icons';
+import { LoaderIcon, WandIcon, RefreshCwIcon } from './common/Icons';
 import { ContextDisplay } from './ContextDisplay';
-import { Button, Textarea } from './common';
+import { Button, Textarea, ChatMessageContent } from './common';
 
 interface ChatSectionProps {
 	documentsContent: string[];
@@ -132,13 +132,29 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		{ label: 'Summarize', prompt: 'Summarize the selected text.' },
 	];
 
+	const handleResetChat = () => {
+		setMessages([]);
+		setInput('');
+		setContextText('');
+	};
+
 	return (
-		<div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-			<div className="p-3 border-b border-gray-700">
+		<div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg overflow-hidden w-full">
+			<div className="p-3 border-b border-gray-700 flex items-center justify-between">
 				<h3 className="text-lg font-semibold text-cyan-400">AI Assistant</h3>
+				{messages.length > 0 && (
+					<button
+						onClick={handleResetChat}
+						className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors rounded hover:bg-gray-700"
+						title="Clear chat history"
+						disabled={isLoading}
+					>
+						<RefreshCwIcon className="h-5 w-5" />
+					</button>
+				)}
 			</div>
 
-			<div className="flex-grow p-3 space-y-3 overflow-y-auto">
+			<div className="flex-grow p-3 space-y-3 overflow-y-auto overflow-x-hidden">
 				{messages.length === 0 && !isLoading && (
 					<div className="flex flex-col items-center justify-center text-center text-gray-500 h-[calc(100%-100px)]">
 						<WandIcon className="h-10 w-10 mb-2" />
@@ -151,7 +167,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				{messages.map((msg, index) => (
 					<div
 						key={index}
-						className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+						className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-[slideIn_0.3s_ease-out]`}
 					>
 						{msg.role === 'system' ? (
 							<p className="text-center text-xs text-gray-500 italic py-2 w-full">
@@ -159,17 +175,23 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 							</p>
 						) : (
 							<div
-								className={`max-w-xs md:max-w-md lg:max-w-xs xl:max-w-sm px-3 py-2 rounded-lg ${msg.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-200'}`}
+								className={`max-w-[95%] px-4 py-3 rounded-lg shadow-md ${msg.role === 'user' ? 'bg-gradient-to-br from-cyan-600 to-cyan-700 text-white text-right' : 'bg-gray-700 text-gray-200 border border-gray-600 text-left'}`}
 							>
-								<p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+								<div className="overflow-hidden break-words">
+									<ChatMessageContent
+										content={msg.content}
+										className={`text-sm ${msg.role === 'user' ? '[&_strong]:text-white [&_code]:bg-cyan-800/50 [&_code]:text-white' : '[&_strong]:text-cyan-300'}`}
+									/>
+								</div>
 							</div>
 						)}
 					</div>
 				))}
 				{isLoading && (
 					<div className="flex justify-start">
-						<div className="px-3 py-2 rounded-lg bg-gray-700 text-gray-200">
-							<LoaderIcon className="h-5 w-5 animate-spin" />
+						<div className="px-3 py-2 rounded-lg bg-gray-700 text-gray-200 border border-gray-600 shadow-md flex items-center gap-2">
+							<LoaderIcon className="h-5 w-5 animate-spin text-cyan-400" />
+							<span className="text-sm text-gray-300">Thinking...</span>
 						</div>
 					</div>
 				)}
@@ -218,6 +240,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 						disabled={isLoading || !input.trim()}
 						loading={isLoading}
 						onClick={() => handleSendMessage()}
+						className="h-full"
 					>
 						Send
 					</Button>
