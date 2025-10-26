@@ -12,3 +12,4 @@ export { FileInput } from './FileInput';
 export { FileList } from './FileList';
 export { FilesDropdown } from './FilesDropdown';
 export { ChatMessageContent } from './ChatMessageContent';
+export { Modal } from './Modal';

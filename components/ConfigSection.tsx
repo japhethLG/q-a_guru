@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QaConfig } from '../types';
-import { LoaderIcon, SparklesIcon } from './common/Icons';
+import { LoaderIcon, SparklesIcon, SettingsIcon } from './common/Icons';
 import {
 	Button,
 	CollapsibleSection,
@@ -8,7 +8,10 @@ import {
 	Input,
 	Textarea,
 	NumberInput,
+	Modal,
 } from './common';
+import { TemplateManager } from './TemplateManager';
+import { getTemplateById } from '../services/templateStorage';
 
 interface ConfigSectionProps {
 	qaConfig: QaConfig;
@@ -27,6 +30,19 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	isGenerating,
 	isDisabled,
 }) => {
+	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
+	const handleSelectTemplate = (templateId: string) => {
+		setQaConfig((c) => ({
+			...c,
+			selectedTemplateId: templateId,
+		}));
+	};
+
+	const selectedTemplate = qaConfig.selectedTemplateId
+		? getTemplateById(qaConfig.selectedTemplateId)
+		: null;
+
 	return (
 		<CollapsibleSection
 			title="2. Configure Q&A"
@@ -71,6 +87,49 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 							setQaConfig((c) => ({ ...c, type: e.target.value as QaConfig['type'] }))
 						}
 					/>
+
+					{/* Template Management */}
+					<div className="border border-gray-700 rounded-lg p-3 bg-gray-800/50">
+						<div className="flex items-center justify-between mb-2">
+							<label className="text-sm font-medium">Output Template</label>
+							<Button
+								variant="icon"
+								size="sm"
+								onClick={() => setIsTemplateModalOpen(true)}
+							>
+								<SettingsIcon className="w-4 h-4" />
+							</Button>
+						</div>
+						{selectedTemplate ? (
+							<div className="text-sm text-gray-300">
+								<div className="font-medium">{selectedTemplate.name}</div>
+								<div className="text-xs text-gray-500 mt-1">
+									Format: {selectedTemplate.answerFormat}
+								</div>
+							</div>
+						) : (
+							<div className="text-sm text-gray-500">Using default template</div>
+						)}
+					</div>
+
+					{selectedTemplate && (
+						<Select
+							label="Answer Format"
+							options={[
+								{ value: 'bold', label: 'Bold' },
+								{ value: 'highlight', label: 'Highlight' },
+								{ value: 'box', label: 'Box' },
+							]}
+							value={qaConfig.answerFormat || 'bold'}
+							onChange={(e) =>
+								setQaConfig((c) => ({
+									...c,
+									answerFormat: e.target.value as QaConfig['answerFormat'],
+								}))
+							}
+						/>
+					)}
+
 					<NumberInput
 						label="Number of Questions"
 						value={qaConfig.count}
@@ -125,6 +184,21 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 							: 'Generate Q&A'}
 				</Button>
 			</div>
+
+			{/* Template Management Modal */}
+			<Modal
+				isOpen={isTemplateModalOpen}
+				onClose={() => setIsTemplateModalOpen(false)}
+				title="Manage Templates"
+				size="xl"
+			>
+				<TemplateManager
+					currentType={qaConfig.type}
+					onSelectTemplate={handleSelectTemplate}
+					selectedTemplateId={qaConfig.selectedTemplateId}
+					onClose={() => setIsTemplateModalOpen(false)}
+				/>
+			</Modal>
 		</CollapsibleSection>
 	);
 };
