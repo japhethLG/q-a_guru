@@ -3,12 +3,13 @@ import { DownloadFormat, DocumentVersion } from '../types';
 import { SaveIcon, XIcon } from './common/Icons';
 import { Button, DownloadsDropdown, VersionsDropdown } from './common';
 
-declare const Quill: any;
+import Quill from 'quill';
 import * as quillToWord from 'quill-to-word';
 import { saveAs } from 'file-saver';
 import TurndownService from 'turndown';
 import html2pdf from 'html2pdf.js';
 import mammoth from 'mammoth';
+import 'quill/dist/quill.snow.css';
 
 interface EditorSectionProps {
 	content: string;

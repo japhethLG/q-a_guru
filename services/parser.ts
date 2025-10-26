@@ -1,8 +1,8 @@
 // Add declarations for CDN libraries to satisfy TypeScript
-declare const pdfjsLib: any;
 declare const JSZip: any;
 import mammoth from 'mammoth';
 import JSZipImport from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
 
 export const parseTxt = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
@@ -77,6 +77,12 @@ export const parsePptx = (file: File): Promise<string> => {
 		reader.readAsArrayBuffer(file);
 	});
 };
+
+// Configure pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+	'pdfjs-dist/build/pdf.worker.min.js',
+	import.meta.url
+).toString();
 
 export const parsePdf = async (file: File): Promise<string> => {
 	const arrayBuffer = await file.arrayBuffer();
