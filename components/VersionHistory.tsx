@@ -1,6 +1,7 @@
 import React from 'react';
 import { DocumentVersion } from '../types';
-import { HistoryIcon, SaveIcon, TrashIcon, XIcon } from './Icons';
+import { HistoryIcon, TrashIcon } from './Icons';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface VersionHistoryProps {
 	versions: DocumentVersion[];
@@ -8,7 +9,6 @@ interface VersionHistoryProps {
 	previewVersionId: string | null;
 	onRevert: (versionId: string) => void;
 	onPreview: (versionId: string) => void;
-	onSave: () => void;
 	onDelete: (versionId: string) => void;
 	onExitPreview: () => void;
 }
@@ -19,7 +19,6 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 	previewVersionId,
 	onRevert,
 	onPreview,
-	onSave,
 	onDelete,
 	onExitPreview,
 }) => {
@@ -42,21 +41,13 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 	};
 
 	return (
-		<div className="p-4 bg-gray-800 rounded-lg shadow-lg flex flex-col h-full">
-			<div className="flex justify-between items-center mb-3">
-				<h3 className="text-lg font-semibold text-cyan-400 flex items-center gap-2">
-					<HistoryIcon className="h-5 w-5" />
-					Version History
-				</h3>
-				<button
-					onClick={onSave}
-					className="p-2 hover:bg-gray-700 rounded-md"
-					title="Save current version"
-				>
-					<SaveIcon className="h-5 w-5" />
-				</button>
-			</div>
-			<div className="flex-grow overflow-y-auto pr-2 -mr-2">
+		<CollapsibleSection
+			title="Version History"
+			icon={<HistoryIcon className="h-5 w-5" />}
+			className="flex flex-col flex-1 min-h-0"
+			headerClassName="mb-3 flex-shrink-0"
+		>
+			<div className="flex-1 overflow-y-auto pr-2 -mr-2 min-h-0">
 				{versions.length > 0 ? (
 					<ul className="space-y-2">
 						{[...versions].reverse().map((version) => {
@@ -120,6 +111,6 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 					</p>
 				)}
 			</div>
-		</div>
+		</CollapsibleSection>
 	);
 };

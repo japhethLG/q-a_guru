@@ -9,6 +9,7 @@ interface ChatSectionProps {
 	documentHtml: string;
 	selectedText: string;
 	onDocumentEdit: (newHtml: string, reason: string) => void;
+	apiKey?: string;
 }
 
 export const ChatSection: React.FC<ChatSectionProps> = ({
@@ -16,6 +17,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	documentHtml,
 	selectedText,
 	onDocumentEdit,
+	apiKey,
 }) => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState('');
@@ -51,7 +53,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				messageToSend,
 				documentsContent,
 				documentHtml,
-				currentContext
+				currentContext,
+				apiKey
 			);
 
 			const functionCalls = response.functionCalls;

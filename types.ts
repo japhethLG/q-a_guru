@@ -3,6 +3,7 @@ export interface QaConfig {
 	type: 'mixed' | 'multiple choice' | 'true/false' | 'short answer' | 'essay';
 	difficulty: 'easy' | 'medium' | 'hard';
 	instructions: string;
+	apiKey?: string;
 }
 
 export interface ChatMessage {

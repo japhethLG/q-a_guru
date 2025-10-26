@@ -1,5 +1,6 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useRef } from 'react';
 import { FileTextIcon, LoaderIcon, UploadCloudIcon, XIcon } from './Icons';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface FileUploadSectionProps {
 	files: File[];
@@ -16,17 +17,23 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 	setDocumentsContent,
 	isLoading,
 }) => {
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const handleDropZoneClick = () => {
+		fileInputRef.current?.click();
+	};
+
 	const removeFile = (index: number) => {
 		setFiles((prev) => prev.filter((_, i) => i !== index));
 		setDocumentsContent((prev) => prev.filter((_, i) => i !== index));
 	};
 
 	return (
-		<div className="p-4 bg-gray-800 rounded-lg shadow-lg">
-			<h3 className="text-lg font-semibold mb-3 text-cyan-400">
-				1. Upload Documents
-			</h3>
-			<div className="relative border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors">
+		<CollapsibleSection title="1. Upload Documents" headerClassName="mb-3">
+			<div
+				className="relative border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors cursor-pointer"
+				onClick={handleDropZoneClick}
+			>
 				<UploadCloudIcon className="mx-auto h-12 w-12 text-gray-500" />
 				<label
 					htmlFor="file-upload"
@@ -36,6 +43,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 					<p className="text-xs text-gray-500 mt-1">PDF, DOCX, PPTX, TXT</p>
 				</label>
 				<input
+					ref={fileInputRef}
 					id="file-upload"
 					type="file"
 					multiple
@@ -55,7 +63,10 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 							<span className="text-sm truncate">{file.name}</span>
 						</div>
 						<button
-							onClick={() => removeFile(index)}
+							onClick={(e) => {
+								e.stopPropagation();
+								removeFile(index);
+							}}
 							className="p-1 hover:bg-red-500/20 rounded-full"
 						>
 							<XIcon className="h-4 w-4 text-red-400" />
@@ -68,6 +79,6 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 					</p>
 				)}
 			</div>
-		</div>
+		</CollapsibleSection>
 	);
 };

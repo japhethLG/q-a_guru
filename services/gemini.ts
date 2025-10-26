@@ -6,16 +6,16 @@ import {
 } from '@google/genai';
 import { QaConfig, ChatMessage } from '../types';
 
-// Per guidelines, initialize with a named apiKey parameter.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-
 /**
  * Generates questions and answers based on provided documents and configuration.
  */
 export const generateQa = async (
 	documents: string[],
-	config: QaConfig
+	config: QaConfig,
+	apiKey?: string
 ): Promise<string> => {
+	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 	const combinedDocuments = documents.join('\n\n---\n\n');
 
 	const prompt = `
@@ -55,9 +55,13 @@ export const generateQa = async (
 export const analyzeImage = async (
 	base64ImageData: string,
 	mimeType: string,
-	prompt: string
+	prompt: string,
+	apiKey?: string
 ): Promise<string> => {
 	try {
+		const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+		const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+
 		const imagePart = {
 			inlineData: {
 				data: base64ImageData,
@@ -118,8 +122,11 @@ export const getChatResponse = async (
 	newMessage: string,
 	sourceDocuments: string[],
 	documentHtml?: string,
-	selectedText?: string
+	selectedText?: string,
+	apiKey?: string
 ): Promise<GenerateContentResponse> => {
+	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 	let systemInstruction = `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
 
 Formatting Rules:

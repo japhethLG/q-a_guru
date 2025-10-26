@@ -94,6 +94,40 @@
 				color: white;
 				padding: 0.25rem 0.5rem;
 			}
+
+			/* Mobile-style scrollbar for the entire project */
+			* {
+				scrollbar-width: thin;
+				scrollbar-color: #4b5563 transparent;
+			}
+
+			/* WebKit scrollbar styling (Chrome, Safari, Edge) */
+			*::-webkit-scrollbar {
+				width: 6px;
+				height: 6px;
+			}
+
+			*::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			*::-webkit-scrollbar-thumb {
+				background-color: #4b5563;
+				border-radius: 3px;
+				border: none;
+			}
+
+			*::-webkit-scrollbar-thumb:hover {
+				background-color: #6b7280;
+			}
+
+			/* For better mobile experience */
+			@media (max-width: 768px) {
+				*::-webkit-scrollbar {
+					width: 4px;
+					height: 4px;
+				}
+			}
 		</style>
 	</head>
 	<body class="bg-gray-900 text-gray-100 font-sans">

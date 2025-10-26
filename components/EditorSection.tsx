@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { DownloadFormat, DocumentVersion } from '../types';
-import { HistoryIcon, SaveIcon, XIcon } from './Icons';
+import { HistoryIcon, SaveIcon, DownloadIcon, XIcon } from './Icons';
 
 declare const Quill: any;
 declare const TurndownService: any;
@@ -14,6 +14,8 @@ interface EditorSectionProps {
 	onDirtyChange: (isDirty: boolean) => void;
 	isPreviewing: boolean;
 	onExitPreview: () => void;
+	onSave?: () => void;
+	isEditorDirty?: boolean;
 }
 
 const toolbarOptions = [
@@ -38,6 +40,8 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	onDirtyChange,
 	isPreviewing,
 	onExitPreview,
+	onSave,
+	isEditorDirty = false,
 }) => {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const quillInstanceRef = useRef<any>(null);
@@ -114,6 +118,24 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 		}
 	}, [content, isPreviewing, onDirtyChange]);
 
+	// Handle Ctrl+S / Cmd+S keyboard shortcut
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+				event.preventDefault();
+				// Only save if there are changes and save handler exists
+				if (isEditorDirty && onSave) {
+					onSave();
+				}
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [isEditorDirty, onSave]);
+
 	const handleDownload = (format: DownloadFormat) => {
 		const quill = quillInstanceRef.current;
 		if (!quill) return;
@@ -151,35 +173,47 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 		<div className="flex flex-col flex-1 w-full bg-gray-800 rounded-lg shadow-lg overflow-hidden">
 			<div className="flex justify-between items-center p-3 border-b border-gray-700 flex-shrink-0">
 				<h3 className="text-lg font-semibold text-cyan-400">Document Editor</h3>
-				<div className="relative group">
-					<button className="p-2 hover:bg-gray-700 rounded-md" title="Download">
-						<SaveIcon className="h-5 w-5" />
-					</button>
-					<div className="absolute right-0 mt-2 w-28 bg-gray-700 border border-gray-600 rounded-md shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-opacity duration-200 z-20">
-						<a
-							onClick={() => handleDownload('pdf')}
-							className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
+				<div className="flex items-center gap-2">
+					{onSave && (
+						<button
+							onClick={onSave}
+							disabled={!isEditorDirty}
+							className="p-2 hover:bg-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+							title={isEditorDirty ? 'Save current version' : 'No changes to save'}
 						>
-							PDF
-						</a>
-						<a
-							onClick={() => handleDownload('docx')}
-							className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-						>
-							DOCX
-						</a>
-						<a
-							onClick={() => handleDownload('md')}
-							className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-						>
-							Markdown
-						</a>
-						<a
-							onClick={() => handleDownload('txt')}
-							className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
-						>
-							TXT
-						</a>
+							<SaveIcon className="h-5 w-5" />
+						</button>
+					)}
+					<div className="relative group">
+						<button className="p-2 hover:bg-gray-700 rounded-md" title="Download">
+							<DownloadIcon className="h-5 w-5" />
+						</button>
+						<div className="absolute right-0 mt-2 w-28 bg-gray-700 border border-gray-600 rounded-md shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-opacity duration-200 z-20">
+							<a
+								onClick={() => handleDownload('pdf')}
+								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
+							>
+								PDF
+							</a>
+							<a
+								onClick={() => handleDownload('docx')}
+								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
+							>
+								DOCX
+							</a>
+							<a
+								onClick={() => handleDownload('md')}
+								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
+							>
+								Markdown
+							</a>
+							<a
+								onClick={() => handleDownload('txt')}
+								className="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-600 cursor-pointer"
+							>
+								TXT
+							</a>
+						</div>
 					</div>
 				</div>
 			</div>

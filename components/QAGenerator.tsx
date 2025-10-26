@@ -45,7 +45,7 @@ export const QAGenerator: React.FC = () => {
 	}, [editorContent, selectedText]);
 
 	const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-		const selectedFiles = Array.from(e.target.files || []);
+		const selectedFiles = Array.from(e.target.files || []) as File[];
 		if (selectedFiles.length === 0) return;
 
 		setFiles((prev) => [...prev, ...selectedFiles]);
@@ -74,7 +74,11 @@ export const QAGenerator: React.FC = () => {
 		}
 		setIsGenerating(true);
 		setEditorContent('');
-		const resultHtml = await generateQa(documentsContent, qaConfig);
+		const resultHtml = await generateQa(
+			documentsContent,
+			qaConfig,
+			qaConfig.apiKey
+		);
 
 		const initialVersion: DocumentVersion = {
 			id: crypto.randomUUID(),
@@ -166,7 +170,7 @@ export const QAGenerator: React.FC = () => {
 
 	return (
 		<div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full">
-			<div className="xl:col-span-3 flex flex-col gap-6">
+			<div className="xl:col-span-3 flex flex-col gap-6 min-h-0">
 				<FileUploadSection
 					files={files}
 					onFileChange={handleFileChange}
@@ -187,7 +191,6 @@ export const QAGenerator: React.FC = () => {
 					previewVersionId={previewVersionId}
 					onPreview={handlePreview}
 					onRevert={handleRevert}
-					onSave={handleSaveVersion}
 					onDelete={handleDeleteVersion}
 					onExitPreview={handleExitPreview}
 				/>
@@ -202,6 +205,8 @@ export const QAGenerator: React.FC = () => {
 						onDirtyChange={setIsEditorDirty}
 						isPreviewing={!!previewVersionId}
 						onExitPreview={handleExitPreview}
+						onSave={handleSaveVersion}
+						isEditorDirty={isEditorDirty}
 					/>
 				</div>
 				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">
@@ -210,6 +215,7 @@ export const QAGenerator: React.FC = () => {
 						documentHtml={editorContent}
 						selectedText={selectedText}
 						onDocumentEdit={handleDocumentEdit}
+						apiKey={qaConfig.apiKey}
 					/>
 				</div>
 			</div>
