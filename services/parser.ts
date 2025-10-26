@@ -3,6 +3,8 @@ declare const JSZip: any;
 import mammoth from 'mammoth';
 import JSZipImport from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
+// @ts-ignore
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
 
 export const parseTxt = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
@@ -21,7 +23,7 @@ export const parseDocx = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = (event) => {
-			const arrayBuffer = event.target?.result;
+			const arrayBuffer = event.target?.result as ArrayBuffer;
 			if (arrayBuffer) {
 				mammoth
 					.extractRawText({ arrayBuffer })
@@ -79,10 +81,8 @@ export const parsePptx = (file: File): Promise<string> => {
 };
 
 // Configure pdf.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-	'pdfjs-dist/build/pdf.worker.min.js',
-	import.meta.url
-).toString();
+// Use Vite's ?url import to get the correct worker path
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 export const parsePdf = async (file: File): Promise<string> => {
 	const arrayBuffer = await file.arrayBuffer();

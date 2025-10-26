@@ -21,5 +21,11 @@ export default defineConfig(({ mode }) => {
 				'@': path.resolve(__dirname, '.'),
 			},
 		},
+		worker: {
+			format: 'es',
+		},
+		optimizeDeps: {
+			include: ['pdfjs-dist'],
+		},
 	};
 });
