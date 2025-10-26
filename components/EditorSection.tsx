@@ -23,6 +23,7 @@ interface EditorSectionProps {
 	onPreview: (versionId: string) => void;
 	onRevert: (versionId: string) => void;
 	onDelete: (versionId: string) => void;
+	highlightedContent?: string | null;
 }
 
 const toolbarOptions = [
@@ -55,6 +56,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	onPreview,
 	onRevert,
 	onDelete,
+	highlightedContent,
 }) => {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const quillInstanceRef = useRef<any>(null);
@@ -149,6 +151,34 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [isEditorDirty, onSave]);
+
+	// Handle highlighting content when hovering over code blocks
+	useEffect(() => {
+		const quill = quillInstanceRef.current;
+		if (!quill || !highlightedContent) {
+			// Clear any existing highlights when highlightedContent is null
+			const editorElement = editorRef.current?.querySelector(
+				'.ql-editor'
+			) as HTMLElement;
+			if (editorElement) {
+				editorElement.style.backgroundColor = '';
+			}
+			return;
+		}
+
+		const editorElement = editorRef.current?.querySelector(
+			'.ql-editor'
+		) as HTMLElement;
+		if (!editorElement) return;
+
+		// Simple visual feedback - pulse the editor background
+		editorElement.style.backgroundColor = 'rgba(34, 211, 238, 0.1)';
+		editorElement.style.transition = 'background-color 0.3s ease-in-out';
+
+		return () => {
+			editorElement.style.backgroundColor = '';
+		};
+	}, [highlightedContent]);
 
 	const handleDownload = (format: DownloadFormat) => {
 		const quill = quillInstanceRef.current;

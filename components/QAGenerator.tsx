@@ -25,6 +25,16 @@ export const QAGenerator: React.FC = () => {
 	const [versionHistory, setVersionHistory] = useState<DocumentVersion[]>([]);
 	const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
 	const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+	const [highlightedContent, setHighlightedContent] = useState<string | null>(
+		null
+	);
+
+	const normalizeText = (text: string) => {
+		return text
+			.replace(/\s+/g, ' ') // Collapse all whitespace to single spaces
+			.trim() // Remove leading/trailing whitespace
+			.toLowerCase(); // Case-insensitive comparison
+	};
 
 	const convertToPlainText = (html: string) => {
 		const tempDiv = document.createElement('div');
@@ -33,15 +43,16 @@ export const QAGenerator: React.FC = () => {
 	};
 
 	useEffect(() => {
-		if (selectedText) {
-			const editorPlainText = convertToPlainText(editorContent);
-			const selectedPlainText = convertToPlainText(selectedText);
+		// Only validate when editor content changes, not when text is first selected
+		if (selectedText && editorContent) {
+			const editorPlainText = normalizeText(convertToPlainText(editorContent));
+			const selectedPlainText = normalizeText(convertToPlainText(selectedText));
 
 			if (!editorPlainText.includes(selectedPlainText)) {
 				setSelectedText('');
 			}
 		}
-	}, [editorContent, selectedText]);
+	}, [editorContent]); // Only depend on editorContent, not selectedText
 
 	const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
 		const selectedFiles = Array.from(e.target.files || []) as File[];
@@ -205,6 +216,7 @@ export const QAGenerator: React.FC = () => {
 						onPreview={handlePreview}
 						onRevert={handleRevert}
 						onDelete={handleDeleteVersion}
+						highlightedContent={highlightedContent}
 					/>
 				</div>
 				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">
@@ -214,6 +226,8 @@ export const QAGenerator: React.FC = () => {
 						selectedText={selectedText}
 						onDocumentEdit={handleDocumentEdit}
 						apiKey={qaConfig.apiKey}
+						highlightedContent={highlightedContent}
+						onHighlightChange={setHighlightedContent}
 					/>
 				</div>
 			</div>

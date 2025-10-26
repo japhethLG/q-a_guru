@@ -2,14 +2,20 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import rehypeRaw from 'rehype-raw';
 import 'highlight.js/styles/github-dark.css';
 
 interface CodeBlockProps {
 	language?: string;
 	code: string;
+	onHighlight?: (content: string | null) => void;
 }
 
-const CodeBlock: React.FC<CodeBlockProps> = ({ language, code }) => {
+const CodeBlock: React.FC<CodeBlockProps> = ({
+	language,
+	code,
+	onHighlight,
+}) => {
 	const [copied, setCopied] = useState(false);
 	const [showButton, setShowButton] = useState(false);
 
@@ -23,11 +29,25 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language, code }) => {
 		}
 	};
 
+	const handleMouseEnter = () => {
+		setShowButton(true);
+		if (onHighlight) {
+			onHighlight(code);
+		}
+	};
+
+	const handleMouseLeave = () => {
+		setShowButton(false);
+		if (onHighlight) {
+			onHighlight(null);
+		}
+	};
+
 	return (
 		<div
 			className="relative group mb-3"
-			onMouseEnter={() => setShowButton(true)}
-			onMouseLeave={() => setShowButton(false)}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
 		>
 			{language && (
 				<div
@@ -61,17 +81,60 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language, code }) => {
 interface ChatMessageContentProps {
 	content: string;
 	className?: string;
+	onHighlight?: (content: string | null) => void;
 }
 
 export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 	content,
 	className = '',
+	onHighlight,
 }) => {
 	return (
 		<div className={`markdown-content w-full ${className}`}>
+			<style>{`
+				.markdown-content details {
+					margin: 0.75rem 0;
+					border: 1px solid #374151;
+					border-radius: 0.5rem;
+					background-color: rgba(31, 41, 55, 0.5);
+					overflow: hidden;
+				}
+				.markdown-content details summary {
+					cursor: pointer;
+					padding: 0.75rem 1rem;
+					color: #22d3ee;
+					font-weight: 500;
+					transition: background-color 0.2s, color 0.2s;
+					display: flex;
+					align-items: center;
+					list-style: none;
+				}
+				.markdown-content details summary::-webkit-details-marker {
+					display: none;
+				}
+				.markdown-content details summary:hover {
+					background-color: rgba(55, 65, 81, 0.5);
+					color: #67e8f9;
+				}
+				.markdown-content details summary span {
+					display: inline-block;
+					margin-right: 0.5rem;
+					transition: transform 0.2s;
+					font-size: 0.75rem;
+				}
+				.markdown-content details[open] summary span {
+					transform: rotate(90deg);
+				}
+				.markdown-content details[open] summary {
+					border-bottom: 1px solid #374151;
+				}
+				.markdown-content details > :not(summary) {
+					padding: 1rem;
+				}
+			`}</style>
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
-				rehypePlugins={[rehypeHighlight]}
+				rehypePlugins={[rehypeRaw, rehypeHighlight]}
 				components={{
 					p: ({ children }) => (
 						<p className="mb-3 last:mb-0 leading-relaxed break-words">{children}</p>
@@ -152,7 +215,13 @@ export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 							const language = languageMatch?.[1];
 							const codeString = extractText(codeElement.children).replace(/\n$/, '');
 
-							return <CodeBlock language={language} code={codeString} />;
+							return (
+								<CodeBlock
+									language={language}
+									code={codeString}
+									onHighlight={onHighlight}
+								/>
+							);
 						}
 
 						// Regular pre element without syntax highlighting
@@ -176,6 +245,13 @@ export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 						<blockquote className="border-l-4 border-cyan-500 pl-3 italic my-3 text-gray-400 bg-gray-800/50 py-2 rounded-r break-words">
 							{children}
 						</blockquote>
+					),
+					details: ({ node, children }: any) => <details>{children}</details>,
+					summary: ({ children }: any) => (
+						<summary className="details-summary">
+							<span className="details-arrow">▶</span>
+							{children}
+						</summary>
 					),
 					hr: () => (
 						<div className="my-6 flex items-center">
