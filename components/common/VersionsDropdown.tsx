@@ -45,10 +45,30 @@ export const VersionsDropdown: React.FC<VersionsDropdownProps> = ({
 		onDelete(versionId);
 	};
 
+	// Determine which version is currently being viewed
+	const activeVersionId = previewVersionId || currentVersionId;
+
+	// Find the index of the active version and calculate its version number
+	// versions array is chronological (oldest first), so index + 1 gives version number
+	const activeVersionIndex = versions.findIndex((v) => v.id === activeVersionId);
+	const activeVersionNumber =
+		activeVersionIndex !== -1 ? activeVersionIndex + 1 : versions.length;
+
+	// Check if this is the latest version (last in the array)
+	const isLatestVersion = activeVersionIndex === versions.length - 1;
+
 	return (
 		<div className="flex items-center gap-2">
 			{versions.length > 0 && (
-				<span className="text-sm text-gray-400">V{versions.length}</span>
+				<span
+					className={`text-sm px-2 py-0.5 rounded ${
+						isLatestVersion
+							? 'text-cyan-400 bg-cyan-400/10'
+							: 'text-gray-400 bg-gray-700/50'
+					}`}
+				>
+					V{activeVersionNumber}
+				</span>
 			)}
 			<Dropdown
 				trigger="click"
