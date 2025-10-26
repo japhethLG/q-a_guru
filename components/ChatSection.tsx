@@ -127,7 +127,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 
 			<div className="flex-grow p-3 space-y-3 overflow-y-auto">
 				{messages.length === 0 && !isLoading && (
-					<div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+					<div className="flex flex-col items-center justify-center text-center text-gray-500 h-[calc(100%-100px)]">
 						<WandIcon className="h-10 w-10 mb-2" />
 						<p className="text-sm">
 							Select text in the editor to get contextual actions, or type a general

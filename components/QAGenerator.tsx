@@ -193,8 +193,8 @@ export const QAGenerator: React.FC = () => {
 				/>
 			</div>
 
-			<div className="xl:col-span-9 grid grid-cols-1 grid-rows-2 lg:grid-rows-1 lg:grid-cols-3 gap-6 h-full">
-				<div className="lg:col-span-2 min-h-0 flex">
+			<div className="xl:col-span-9 grid grid-cols-1 grid-rows-2 lg:grid-rows-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
+				<div className="lg:col-span-2 min-h-0 flex overflow-hidden">
 					<EditorSection
 						content={contentToDisplay}
 						onContentChange={setEditorContent}
@@ -204,7 +204,7 @@ export const QAGenerator: React.FC = () => {
 						onExitPreview={handleExitPreview}
 					/>
 				</div>
-				<div className="lg:col-span-1 min-h-0 flex">
+				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">
 					<ChatSection
 						documentsContent={documentsContent}
 						documentHtml={editorContent}

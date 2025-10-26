@@ -51,6 +51,16 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 			});
 			quillInstanceRef.current = quill;
 
+			// Ensure the Quill container has proper overflow handling
+			const container = editorRef.current.querySelector(
+				'.ql-container'
+			) as HTMLElement;
+			if (container) {
+				container.style.flex = '1';
+				container.style.overflow = 'auto';
+				container.style.minHeight = '0';
+			}
+
 			quill.on('text-change', (delta: any, oldDelta: any, source: string) => {
 				if (source === 'user') {
 					onContentChange(quill.root.innerHTML);
@@ -138,7 +148,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	};
 
 	return (
-		<div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+		<div className="flex flex-col flex-1 w-full bg-gray-800 rounded-lg shadow-lg overflow-hidden">
 			<div className="flex justify-between items-center p-3 border-b border-gray-700 flex-shrink-0">
 				<h3 className="text-lg font-semibold text-cyan-400">Document Editor</h3>
 				<div className="relative group">
@@ -189,7 +199,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 
 			<div
 				ref={editorRef}
-				className="flex-grow flex flex-col overflow-hidden"
+				className="flex-grow flex flex-col"
 				style={{ minHeight: 0 }}
 			>
 				{/* Quill will attach here */}
