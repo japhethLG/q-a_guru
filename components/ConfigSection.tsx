@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QaConfig } from '../types';
+import { QaConfig, QuestionTemplate } from '../types';
 import { LoaderIcon, SparklesIcon, SettingsIcon } from './common/Icons';
 import {
 	Button,
@@ -11,7 +11,13 @@ import {
 	Modal,
 } from './common';
 import { TemplateManager } from './TemplateManager';
-import { getTemplateById } from '../services/templateStorage';
+import { TemplateEditor } from './TemplateEditor';
+import {
+	getTemplateById,
+	getTemplates,
+	addTemplate,
+	updateTemplate,
+} from '../services/templateStorage';
 
 interface ConfigSectionProps {
 	qaConfig: QaConfig;
@@ -31,12 +37,40 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	isDisabled,
 }) => {
 	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+	const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+	const [editingTemplate, setEditingTemplate] = useState<{
+		template: QuestionTemplate | null;
+		currentType: string;
+	} | null>(null);
+	const [templateRefreshKey, setTemplateRefreshKey] = useState(0);
+	const saveEditorRef = React.useRef<(() => void) | null>(null);
 
 	const handleSelectTemplate = (templateId: string) => {
-		setQaConfig((c) => ({
-			...c,
-			selectedTemplateId: templateId,
-		}));
+		const selectedTemplate = getTemplateById(templateId);
+		if (selectedTemplate) {
+			setQaConfig((c) => ({
+				...c,
+				selectedTemplateId: templateId,
+				type: selectedTemplate.questionType,
+				answerFormat: selectedTemplate.answerFormat,
+			}));
+		}
+	};
+
+	const handleOpenEditor = (
+		template: QuestionTemplate | null,
+		currentType: string
+	) => {
+		setEditingTemplate({ template, currentType });
+		setIsEditingTemplate(true);
+		setIsTemplateModalOpen(false); // Close the manager modal
+	};
+
+	const handleCloseEditor = () => {
+		setIsEditingTemplate(false);
+		setEditingTemplate(null);
+		// Reopen the manager modal with updated templates
+		setTimeout(() => setIsTemplateModalOpen(true), 0);
 	};
 
 	const selectedTemplate = qaConfig.selectedTemplateId
@@ -135,6 +169,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 						value={qaConfig.count}
 						onChange={(value) => setQaConfig((c) => ({ ...c, count: value }))}
 						min={1}
+						max={100}
 						step={1}
 						showInput={true}
 					/>
@@ -197,8 +232,57 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					onSelectTemplate={handleSelectTemplate}
 					selectedTemplateId={qaConfig.selectedTemplateId}
 					onClose={() => setIsTemplateModalOpen(false)}
+					onEdit={handleOpenEditor}
+					refreshKey={templateRefreshKey}
 				/>
 			</Modal>
+
+			{/* Edit Template Modal */}
+			{isEditingTemplate && editingTemplate && (
+				<Modal
+					isOpen={isEditingTemplate}
+					onClose={handleCloseEditor}
+					title={editingTemplate.template?.id ? 'Edit Template' : 'New Template'}
+					size="xl"
+					footer={
+						<div className="flex justify-end gap-2">
+							<Button variant="secondary" onClick={handleCloseEditor}>
+								Cancel
+							</Button>
+							<Button variant="primary" onClick={() => saveEditorRef.current?.()}>
+								Save Template
+							</Button>
+						</div>
+					}
+				>
+					<TemplateEditor
+						template={
+							editingTemplate.template?.id ? editingTemplate.template : undefined
+						}
+						questionType={editingTemplate.currentType as any}
+						onSave={(templateData) => {
+							if (editingTemplate.template?.id) {
+								updateTemplate(editingTemplate.template.id, templateData);
+							} else {
+								const newTemplate: QuestionTemplate = {
+									...templateData,
+									id: crypto.randomUUID(),
+								};
+								addTemplate(newTemplate);
+							}
+							// Refresh the template list
+							setTemplateRefreshKey((k) => k + 1);
+							// Close editor and reopen manager
+							setIsEditingTemplate(false);
+							setEditingTemplate(null);
+							setTimeout(() => setIsTemplateModalOpen(true), 0);
+						}}
+						onSaveRef={(handler) => {
+							saveEditorRef.current = handler;
+						}}
+					/>
+				</Modal>
+			)}
 		</CollapsibleSection>
 	);
 };

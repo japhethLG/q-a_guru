@@ -1,7 +1,8 @@
 // Add declarations for CDN libraries to satisfy TypeScript
-declare const mammoth: any;
 declare const pdfjsLib: any;
 declare const JSZip: any;
+import mammoth from 'mammoth';
+import JSZipImport from 'jszip';
 
 export const parseTxt = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
@@ -48,7 +49,7 @@ export const parsePptx = (file: File): Promise<string> => {
 				if (!arrayBuffer) {
 					return reject(new Error('Failed to read PPTX file.'));
 				}
-				const zip = await JSZip.loadAsync(arrayBuffer);
+				const zip = await JSZipImport.loadAsync(arrayBuffer);
 				const slideFiles = Object.keys(zip.files).filter(
 					(name) => name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
 				);

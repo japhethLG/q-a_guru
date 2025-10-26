@@ -4,9 +4,11 @@ import { SaveIcon, XIcon } from './common/Icons';
 import { Button, DownloadsDropdown, VersionsDropdown } from './common';
 
 declare const Quill: any;
-declare const TurndownService: any;
-declare const html2pdf: any;
-declare const saveAs: any;
+import * as quillToWord from 'quill-to-word';
+import { saveAs } from 'file-saver';
+import TurndownService from 'turndown';
+import html2pdf from 'html2pdf.js';
+import mammoth from 'mammoth';
 
 interface EditorSectionProps {
 	content: string;
@@ -180,7 +182,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 		};
 	}, [highlightedContent]);
 
-	const handleDownload = (format: DownloadFormat) => {
+	const handleDownload = async (format: DownloadFormat) => {
 		const quill = quillInstanceRef.current;
 		if (!quill) return;
 
@@ -204,11 +206,52 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 				saveAs(blobMd, `${title}.md`);
 				break;
 			case 'pdf':
-				html2pdf().from(contentHtml).save(`${title}.pdf`);
+				// Parse HTML and set default text to black while preserving user colors
+				const tempDiv = document.createElement('div');
+				tempDiv.innerHTML = contentHtml;
+
+				// Set default text color to black for elements without explicit color
+				const allElements = tempDiv.querySelectorAll('*');
+				allElements.forEach((el: Element) => {
+					const htmlEl = el as HTMLElement;
+					const currentStyle = htmlEl.getAttribute('style') || '';
+
+					// Only modify if there's no color style already set by user
+					if (!currentStyle.includes('color:')) {
+						htmlEl.style.color = '#000000';
+					}
+				});
+
+				const opt = {
+					margin: [0.75, 0.75, 0.75, 0.75] as [number, number, number, number],
+					filename: `${title}.pdf`,
+					image: { type: 'jpeg' as const, quality: 0.98 },
+					html2canvas: {
+						scale: 2,
+						backgroundColor: '#ffffff',
+						useCORS: true,
+						logging: false,
+					},
+					jsPDF: {
+						unit: 'in' as const,
+						format: 'letter' as const,
+						orientation: 'portrait' as const,
+					},
+				};
+
+				html2pdf().set(opt).from(tempDiv.innerHTML).save();
 				break;
 			case 'docx':
-				const docx = (window as any).htmlDocx.asBlob(contentHtml);
-				saveAs(docx, `${title}.docx`);
+				// Use quill-to-word to convert Quill Delta to DOCX
+				try {
+					const delta = quill.getContents();
+					const docxBlob = await quillToWord.generateWord(delta, {
+						exportAs: 'blob',
+					});
+					saveAs(docxBlob, `${title}.docx`);
+				} catch (error) {
+					console.error('Error generating DOCX:', error);
+				}
 				break;
 		}
 	};
