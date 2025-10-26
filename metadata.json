@@ -1,5 +1,5 @@
 {
-  "name": "AI Q&A Generator & Document Editor",
-  "description": "Upload documents, generate Q&A, edit content in a rich text editor, and get AI assistance with an integrated chat bot. Features image analysis, thinking mode for complex queries, and search grounding for up-to-date information.",
-  "requestFramePermissions": []
+	"name": "AI Q&A Generator & Document Editor",
+	"description": "Upload documents, generate Q&A, edit content in a rich text editor, and get AI assistance with an integrated chat bot. Features image analysis, thinking mode for complex queries, and search grounding for up-to-date information.",
+	"requestFramePermissions": []
 }

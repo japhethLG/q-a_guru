@@ -1,25 +1,25 @@
 {
-  "name": "ai-q&a-generator-&-document-editor",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"*.{js,jsx,ts,tsx,json,css,scss,md}\" \"components/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"services/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"*.{js,jsx,ts,tsx,json,css,scss,md}\" \"components/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"services/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@google/genai": "^1.27.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "prettier": "^3.4.2",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+	"name": "ai-q&a-generator-&-document-editor",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"*.{js,jsx,ts,tsx,json,css,scss,md}\" \"components/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"services/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+		"format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"*.{js,jsx,ts,tsx,json,css,scss,md}\" \"components/**/*.{js,jsx,ts,tsx,json,css,scss,md}\" \"services/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"@google/genai": "^1.27.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.14.0",
+		"@vitejs/plugin-react": "^5.0.0",
+		"prettier": "^3.4.2",
+		"typescript": "~5.8.2",
+		"vite": "^6.2.0"
+	}
 }
