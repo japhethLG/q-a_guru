@@ -2,7 +2,7 @@ import { GoogleGenAI, FunctionDeclaration, Type, GenerateContentResponse } from 
 import { QaConfig, ChatMessage } from "../types";
 
 // Per guidelines, initialize with a named apiKey parameter.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 /**
  * Generates questions and answers based on provided documents and configuration.
