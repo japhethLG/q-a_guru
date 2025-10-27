@@ -1,10 +1,22 @@
 # Q&A Guru
 
 <div align="center">
-<img width="1200" height="auto" alt="Q&A Guru Banner" src="./docs/images/banner.png" />
-</div>
 
-An AI-powered Q&A Generator and Document Editor that transforms your documents into interactive learning materials. Built with React, TypeScript, and Google's Gemini AI.
+<img width="1200" height="auto" alt="Q&A Guru Banner" src="./docs/images/banner.png" />
+
+### 🚀 **Transform learning materials into Q&A**
+
+Powered by **React**, **TypeScript**, and **Google's Gemini AI**
+
+<p>
+  <img src="https://img.shields.io/badge/React-19.x-61dafb?style=for-the-badge&logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Gemini-AI-4285f4?style=for-the-badge&logo=google" alt="Gemini AI" />
+</p>
+
+[⭐ Star on GitHub](https://github.com/japhethLG/q-a_guru) • [🚀 Live Demo](https://japhethLG.github.io/q-a_guru/) • [📖 Documentation](#features)
+
+</div>
 
 ## Features
 
