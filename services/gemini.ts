@@ -209,12 +209,16 @@ export const getChatResponseStream = async function* (
 		| 'gemini-2.5-pro'
 		| 'gemini-2.5-flash'
 		| 'gemini-2.5-flash-lite' = 'gemini-2.5-pro',
+	qaConfig?: QaConfig | null,
 	signal?: AbortSignal
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
 	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 
-	let systemInstruction = prompts.baseChatSystemInstruction(sourceDocuments);
+	let systemInstruction = prompts.baseChatSystemInstruction(
+		sourceDocuments,
+		qaConfig
+	);
 
 	if (documentHtml) {
 		systemInstruction = prompts.appendDocumentHtml(

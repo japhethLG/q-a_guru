@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QaConfig, QuestionTemplate } from '../types';
+import { QuestionTemplate, QaConfig } from '../types';
 import { LoaderIcon, SparklesIcon, SettingsIcon } from './common/Icons';
 import {
 	Button,
@@ -18,24 +18,21 @@ import {
 	addTemplate,
 	updateTemplate,
 } from '../services/templateStorage';
+import { useAppContext } from '../contexts/AppContext';
 
 interface ConfigSectionProps {
-	qaConfig: QaConfig;
-	setQaConfig: React.Dispatch<React.SetStateAction<QaConfig>>;
 	onGenerate: () => void;
 	onStop?: () => void;
-	isGenerating: boolean;
-	isDisabled: boolean;
 }
 
 export const ConfigSection: React.FC<ConfigSectionProps> = ({
-	qaConfig,
-	setQaConfig,
 	onGenerate,
 	onStop,
-	isGenerating,
-	isDisabled,
 }) => {
+	const { qaConfig, setQaConfig, files, isParsing, isGenerating } =
+		useAppContext();
+
+	const isDisabled = files.length === 0 || isParsing || isGenerating;
 	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 	const [isEditingTemplate, setIsEditingTemplate] = useState(false);
 	const [editingTemplate, setEditingTemplate] = useState<{

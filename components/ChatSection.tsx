@@ -4,26 +4,27 @@ import { getChatResponseStream, getReflectionStream } from '../services/gemini';
 import { LoaderIcon, WandIcon, RefreshCwIcon } from './common/Icons';
 import { ContextDisplay } from './ContextDisplay';
 import { Button, Textarea, ChatMessageContent, Select } from './common';
+import { useAppContext } from '../contexts/AppContext';
 
 interface ChatSectionProps {
-	documentsContent: string[];
 	documentHtml: string;
 	selectedText: string;
 	onDocumentEdit: (newHtml: string, reason: string) => void;
-	apiKey?: string;
-	highlightedContent?: string | null;
-	onHighlightChange?: (content: string | null) => void;
 }
 
 export const ChatSection: React.FC<ChatSectionProps> = ({
-	documentsContent,
 	documentHtml,
 	selectedText,
 	onDocumentEdit,
-	apiKey,
-	highlightedContent,
-	onHighlightChange,
 }) => {
+	const {
+		documentsContent,
+		qaConfig,
+		generationConfig,
+		highlightedContent,
+		setHighlightedContent,
+	} = useAppContext();
+
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
@@ -75,8 +76,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				documentsContent,
 				documentHtml,
 				contextText,
-				apiKey,
+				qaConfig.apiKey,
 				chatConfig.model,
+				generationConfig || qaConfig, // Use generation config if available, otherwise use current config
 				abortControllerRef.current.signal
 			);
 
@@ -272,7 +274,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 							const reflectionStream = getReflectionStream(
 								conversationHistory,
 								toolResultMessage,
-								apiKey,
+								qaConfig.apiKey,
 								chatConfig.model,
 								abortControllerRef.current.signal
 							);
@@ -414,7 +416,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 								</p>
 							) : (
 								<div
-									className={`max-w-[95%] px-4 py-3 rounded-lg shadow-md ${msg.role === 'user' ? 'bg-gradient-to-br from-cyan-600 to-cyan-700 text-white text-right' : 'bg-gray-700 text-gray-200 border border-gray-600 text-left'}`}
+									className={`max-w-[95%] px-4 py-3 rounded-lg shadow-md ${msg.role === 'user' ? 'bg-linear-to-br from-cyan-600 to-cyan-700 text-white text-right' : 'bg-gray-700 text-gray-200 border border-gray-600 text-left'}`}
 								>
 									{/* Show thinking indicator on top if this is the last message and streaming */}
 									{isStreamingState && (
@@ -423,11 +425,11 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 											<span>Thinking...</span>
 										</div>
 									)}
-									<div className="overflow-hidden break-words">
+									<div className="overflow-hidden wrap-break-words">
 										<ChatMessageContent
 											content={msg.content}
 											className={`text-sm ${msg.role === 'user' ? '[&_strong]:text-white [&_code]:bg-cyan-800/50 [&_code]:text-white' : '[&_strong]:text-cyan-300'}`}
-											onHighlight={onHighlightChange}
+											onHighlight={setHighlightedContent}
 										/>
 									</div>
 								</div>

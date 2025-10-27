@@ -1,35 +1,43 @@
-import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
-import { QaConfig, DocumentVersion } from '../types';
+import React, { useRef, ChangeEvent, useEffect } from 'react';
+import { DocumentVersion } from '../types';
 import { parseFile } from '../services/parser';
 import { generateQaStream } from '../services/gemini';
 import { FileUploadSection } from './FileUploadSection';
 import { ConfigSection } from './ConfigSection';
 import { EditorSection } from './EditorSection';
 import { ChatSection } from './ChatSection';
+import { useAppContext } from '../contexts/AppContext';
 
 export const QAGenerator: React.FC = () => {
-	const [files, setFiles] = useState<File[]>([]);
-	const [documentsContent, setDocumentsContent] = useState<string[]>([]);
-	const [qaConfig, setQaConfig] = useState<QaConfig>({
-		count: 5,
-		type: 'mixed',
-		difficulty: 'medium',
-		instructions: '',
-		model: 'gemini-2.5-flash',
-	});
-	const [editorContent, setEditorContent] = useState<string>('');
-	const [isParsing, setIsParsing] = useState(false);
-	const [isGenerating, setIsGenerating] = useState(false);
-	const [selectedText, setSelectedText] = useState('');
-	const [isEditorDirty, setIsEditorDirty] = useState(false);
-	const abortControllerRef = useRef<AbortController | null>(null);
+	const {
+		files,
+		setFiles,
+		documentsContent,
+		setDocumentsContent,
+		qaConfig,
+		setQaConfig,
+		setGenerationConfig,
+		editorContent,
+		setEditorContent,
+		isParsing,
+		setIsParsing,
+		isGenerating,
+		setIsGenerating,
+		selectedText,
+		setSelectedText,
+		isEditorDirty,
+		setIsEditorDirty,
+		versionHistory,
+		setVersionHistory,
+		currentVersionId,
+		setCurrentVersionId,
+		previewVersionId,
+		setPreviewVersionId,
+		highlightedContent,
+		setHighlightedContent,
+	} = useAppContext();
 
-	const [versionHistory, setVersionHistory] = useState<DocumentVersion[]>([]);
-	const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
-	const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
-	const [highlightedContent, setHighlightedContent] = useState<string | null>(
-		null
-	);
+	const abortControllerRef = useRef<AbortController | null>(null);
 
 	const normalizeText = (text: string) => {
 		return text
@@ -86,6 +94,10 @@ export const QAGenerator: React.FC = () => {
 			alert('Please upload at least one document.');
 			return;
 		}
+
+		// Capture current config as generation config
+		setGenerationConfig(qaConfig);
+
 		setIsGenerating(true);
 		setEditorContent('');
 
@@ -227,21 +239,8 @@ export const QAGenerator: React.FC = () => {
 	return (
 		<div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full">
 			<div className="xl:col-span-3 flex flex-col gap-6 min-h-0">
-				<FileUploadSection
-					files={files}
-					onFileChange={handleFileChange}
-					setFiles={setFiles}
-					setDocumentsContent={setDocumentsContent}
-					isLoading={isParsing}
-				/>
-				<ConfigSection
-					qaConfig={qaConfig}
-					setQaConfig={setQaConfig}
-					onGenerate={handleGenerate}
-					onStop={handleStopGeneration}
-					isGenerating={isGenerating}
-					isDisabled={files.length === 0 || isParsing || isGenerating}
-				/>
+				<FileUploadSection onFileChange={handleFileChange} />
+				<ConfigSection onGenerate={handleGenerate} onStop={handleStopGeneration} />
 			</div>
 
 			<div className="xl:col-span-9 grid grid-cols-1 grid-rows-2 lg:grid-rows-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
@@ -266,13 +265,9 @@ export const QAGenerator: React.FC = () => {
 				</div>
 				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">
 					<ChatSection
-						documentsContent={documentsContent}
 						documentHtml={editorContent}
 						selectedText={selectedText}
 						onDocumentEdit={handleDocumentEdit}
-						apiKey={qaConfig.apiKey}
-						highlightedContent={highlightedContent}
-						onHighlightChange={setHighlightedContent}
 					/>
 				</div>
 			</div>

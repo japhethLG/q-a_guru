@@ -2,6 +2,8 @@
  * All prompts and instructions used throughout the application
  */
 
+import { getTemplateById } from './templateStorage';
+
 export const prompts = {
 	/**
 	 * Generates a prompt for Q&A generation based on documents and configuration
@@ -122,8 +124,23 @@ Remember: This is a continuation, not a new conversation. Do NOT repeat what you
 	 * Base system instruction for chat interactions
 	 */
 	baseChatSystemInstruction: (
-		sourceDocuments: string[]
-	) => `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
+		sourceDocuments: string[],
+		qaConfig?: {
+			type: string;
+			difficulty: string;
+			instructions: string;
+			selectedTemplateId?: string;
+			answerFormat?: string;
+			count: number;
+		} | null
+	) => {
+		// Check if documents are attached
+		const hasDocuments = sourceDocuments && sourceDocuments.length > 0;
+
+		let instruction = `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
+
+## IMPORTANT: Document Requirements
+${!hasDocuments ? `⚠️ **NO DOCUMENTS ATTACHED**: There are currently no source documents attached to this session. You should NOT generate questions or create Q&A content unless the user explicitly requests you to do so without documents. If asked to generate questions, politely inform them that documents need to be uploaded first.` : `✅ **DOCUMENTS ATTACHED**: Source documents are available. You can generate questions and create Q&A content based on these documents.`}
 
 ## Output Formatting Rules:
 
@@ -197,6 +214,7 @@ Editing Instructions:
 - For large selections or multi-paragraph edits, use 'full_document_html' with the complete new HTML for the entire document.
 - For small, targeted changes to unselected text, use 'html_snippet_to_replace' and 'replacement_html' parameters. Copy the EXACT HTML from the document including all tags, whitespace, and structure.
 - If you cannot find the exact HTML match, fall back to using 'full_document_html' instead of failing.
+- **Empty Document Handling**: If the document is empty (no content exists yet), you CAN and SHOULD create new content by using 'full_document_html' with the complete new HTML. Do not refuse to edit an empty document - treat it as creating new content from scratch.
 
 ## Agentic Behavior (CRITICAL):
 
@@ -216,17 +234,72 @@ Example of good post-edit feedback:
 
 NEVER just call edit_document without explanation. Always provide reasoning before and detailed results after.
 
-Context:
+${
+	hasDocuments
+		? `Context:
 The user has provided the following source documents. Base your knowledge and answers on this content.
 --- SOURCE DOCUMENTS START ---
 ${sourceDocuments.join('\n\n---\n\n')}
 --- SOURCE DOCUMENTS END ---
-`,
+`
+		: `Context:
+⚠️ NO SOURCE DOCUMENTS PROVIDED: The user has not uploaded any source documents yet. Do not generate questions or create Q&A content unless they explicitly request you to do so without documents. Instead, guide them to upload documents first.
+`
+}
+`;
+
+		// Add Q&A configuration context if available
+		if (qaConfig) {
+			const selectedTemplate = qaConfig.selectedTemplateId
+				? getTemplateById(qaConfig.selectedTemplateId)
+				: null;
+
+			instruction += `\n\n## Q&A Generation Context:
+The current document was generated with the following configuration:
+- Question Type: ${qaConfig.type}
+- Difficulty: ${qaConfig.difficulty}
+${qaConfig.count ? `- Number of Questions: ${qaConfig.count}` : ''}
+${qaConfig.instructions ? `- Additional Instructions: ${qaConfig.instructions}` : ''}`;
+
+			if (selectedTemplate) {
+				instruction += `
+- Template: ${selectedTemplate.name} (${qaConfig.selectedTemplateId})
+- Answer Format: ${qaConfig.answerFormat || selectedTemplate.answerFormat}
+- Template Structure: The document follows this HTML template format:
+\`\`\`
+${selectedTemplate.templateString}
+\`\`\`
+Variables used in this template:
+- [number] - Question number
+- [question] - The question text
+- [statement] - True/false statement
+- [answer] - Correct answer
+- [reference] - Source citation
+${selectedTemplate.questionType === 'multiple choice' ? '- [choice1-4] - Answer choices\n- [letter] - Answer letter' : ''}
+${selectedTemplate.questionType === 'true/false' ? '- [correct_answer] - True or False' : ''}`;
+			}
+
+			instruction += `
+
+You should keep this context in mind when answering questions about the document structure and content.`;
+		}
+
+		return instruction;
+	},
 
 	/**
 	 * Appends document HTML context to the system instruction
 	 */
 	appendDocumentHtml: (instruction: string, documentHtml: string) => {
+		// Handle empty document
+		if (!documentHtml || documentHtml.trim() === '') {
+			return (
+				instruction +
+				`\n\n## Document State: EMPTY
+The document in the editor is currently empty. When the user asks you to create content, you should use the edit_document tool with 'full_document_html' parameter to provide the complete new HTML content. Do not refuse - treat this as creating new content from scratch.`
+			);
+		}
+
 		return (
 			instruction +
 			`\n\nThis is the current state of the document in the editor. Use this as the primary reference for finding the 'html_snippet_to_replace'.\n"""\n${documentHtml}\n"""`

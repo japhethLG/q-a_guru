@@ -1,22 +1,16 @@
 import React, { ChangeEvent, useState } from 'react';
 import { LoaderIcon } from './common/Icons';
 import { CollapsibleSection, FileInput, FilesDropdown } from './common';
+import { useAppContext } from '../contexts/AppContext';
 
 interface FileUploadSectionProps {
-	files: File[];
 	onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
-	setFiles: React.Dispatch<React.SetStateAction<File[]>>;
-	setDocumentsContent: React.Dispatch<React.SetStateAction<string[]>>;
-	isLoading: boolean;
 }
 
 export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
-	files,
 	onFileChange,
-	setFiles,
-	setDocumentsContent,
-	isLoading,
 }) => {
+	const { files, setFiles, setDocumentsContent, isParsing } = useAppContext();
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 
 	const handleFilesChange = async (newFiles: File[]) => {
@@ -74,7 +68,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 				onFilesChange={handleFilesChange}
 				accept=".pdf,.docx,.pptx,.txt"
 				multiple={true}
-				disabled={isLoading}
+				disabled={isParsing}
 				placeholder="Click to upload or drag and drop"
 				helperText="PDF, DOCX, PPTX, TXT"
 				showFileList={false}
@@ -85,14 +79,14 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 						files={files}
 						onRemove={handleRemoveFile}
 						onReset={handleReset}
-						disabled={isLoading}
+						disabled={isParsing}
 						isOpen={dropdownOpen}
 						onOpenChange={setDropdownOpen}
 						direction="left"
 					/>
 				</div>
 			)}
-			{isLoading && files.length > 0 && (
+			{isParsing && files.length > 0 && (
 				<p className="text-sm text-cyan-400 flex items-center gap-2 mt-3">
 					<LoaderIcon className="h-4 w-4" /> Parsing files...
 				</p>
