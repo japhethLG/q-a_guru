@@ -10,10 +10,12 @@ export const defaultTemplates: QuestionTemplate[] = [
 		questionType: 'multiple choice',
 		templateString: `
 <p><strong>[number]: [question]</strong></p>
-<p>a) [choice1]</p>
-<p><strong>b) [answer]</strong></p>
-<p>c) [choice3]</p>
-<p>d) [choice4]</p>
+<ul>
+<li>[choice1]</li>
+<li><strong>[answer]</strong></li>
+<li>[choice3]</li>
+<li>[choice4]</li>
+</ul>
 <p><i>Reference: [reference]</i></p>
 <br>`,
 		answerFormat: 'bold',

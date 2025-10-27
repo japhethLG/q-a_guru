@@ -36,7 +36,7 @@ Powered by **React**, **TypeScript**, and **Google's Gemini AI**
 
 ### ✏️ Rich Text Editor
 
-- **Full-featured Editor**: Based on Quill with comprehensive formatting options
+- **Full-featured Editor**: Powered by TinyMCE with comprehensive formatting options
 - **Version History**: Track all document versions with timestamps and reasons
 - **Preview Mode**: View any past version without losing your current work
 - **Undo/Redo Support**: Built-in revision management
@@ -85,15 +85,17 @@ cd q-a_guru
 npm install
 ```
 
-3. Configure your Gemini API key:
+3. Configure API keys:
 
    Create a `.env` file in the root directory:
 
    ```env
    VITE_GEMINI_API_KEY=your-api-key-here
+   VITE_TINYMCE_API_KEY=your-api-key-here
    ```
 
-   Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - Get your TinyMCE API key from [TinyMCE Cloud](https://www.tiny.cloud/auth/signup/)
 
 4. Run the development server:
 
@@ -150,17 +152,17 @@ Every generation and major edit creates a new version. Access version history vi
 - **React 19**: Latest React with modern hooks
 - **TypeScript**: Type-safe development
 - **Tailwind CSS 4**: Modern utility-first styling
-- **Quill**: Rich text editor
+- **TinyMCE**: Rich text editor
 - **Vite**: Fast build tool and dev server
 
 ### Libraries
 
 - **@google/genai**: Google's Gemini AI integration
+- **@tinymce/tinymce-react**: TinyMCE rich text editor
 - **mammoth**: DOCX parsing
 - **pdfjs-dist**: PDF parsing
 - **jszip**: PPTX parsing
-- **quill-to-word**: DOCX export
-- **html2pdf.js**: PDF generation
+- **html-docx-js-typescript**: DOCX export
 - **turndown**: HTML to Markdown conversion
 - **file-saver**: File downloads
 
@@ -174,6 +176,7 @@ q-a_guru/
 │   │   ├── Input.tsx
 │   │   ├── Select.tsx
 │   │   ├── Textarea.tsx
+│   │   ├── TinyMCEEditor.tsx
 │   │   ├── Dropdown.tsx
 │   │   ├── Modal.tsx
 │   │   └── ...

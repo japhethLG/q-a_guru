@@ -373,7 +373,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				</div>
 				<Select
 					label="Model"
-					size="sm"
+					size="md"
 					options={[
 						{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
 						{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
@@ -389,7 +389,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				/>
 			</div>
 
-			<div className="flex-grow p-3 space-y-3 overflow-y-auto overflow-x-hidden">
+			<div className="grow p-3 space-y-3 overflow-y-auto overflow-x-hidden">
 				{messages.length === 0 && !isLoading && (
 					<div className="flex flex-col items-center justify-center text-center text-gray-500 h-[calc(100%-100px)]">
 						<WandIcon className="h-10 w-10 mb-2" />
