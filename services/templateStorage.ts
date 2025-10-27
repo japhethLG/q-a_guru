@@ -1,4 +1,5 @@
-import { QuestionTemplate, QuestionType, defaultTemplates } from './templates';
+import { defaultTemplates } from './templates';
+import { QuestionTemplate, QuestionType } from '../types';
 
 const STORAGE_KEY = 'qa_templates';
 
