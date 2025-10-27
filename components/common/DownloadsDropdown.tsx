@@ -22,13 +22,6 @@ export const DownloadsDropdown: React.FC<DownloadsDropdownProps> = ({
 		>
 			<Button
 				variant="secondary"
-				onClick={() => onDownload('pdf')}
-				className="w-full justify-start"
-			>
-				PDF
-			</Button>
-			<Button
-				variant="secondary"
 				onClick={() => onDownload('docx')}
 				className="w-full justify-start"
 			>

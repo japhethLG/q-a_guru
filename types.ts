@@ -42,7 +42,7 @@ export interface GroundingSource {
 	title: string;
 }
 
-export type DownloadFormat = 'pdf' | 'txt' | 'docx' | 'md';
+export type DownloadFormat = 'txt' | 'docx' | 'md';
 
 export interface DocumentVersion {
 	id: string;
