@@ -15,7 +15,20 @@ export default defineConfig(({ mode }) => {
 			host: '0.0.0.0',
 			hmr: true, // Hot Module Replacement enabled
 		},
-		plugins: [react(), tailwindcss()],
+		plugins: [
+			react(),
+			tailwindcss(),
+			// Plugin to transform HTML for public assets
+			{
+				name: 'transform-html-public-assets',
+				transformIndexHtml(html) {
+					return html.replace(
+						/<link rel="icon" href="\.\/(.*?)" \/>/,
+						`<link rel="icon" href="${base}$1" />`
+					);
+				},
+			},
+		],
 		resolve: {
 			alias: {
 				'@': path.resolve(__dirname, '.'),
