@@ -2,7 +2,7 @@ import React from 'react';
 
 export const SparklesIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	props
-) => <img src="/logo.png" alt="Sparkles" {...props} />;
+) => <img src="/docs/images/logo.png" alt="Sparkles" {...props} />;
 
 export const FileTextIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	props
