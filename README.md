@@ -1,7 +1,7 @@
 # Q&A Guru
 
 <div align="center">
-<img width="1200" height="475" alt="Q&A Guru Banner" src="./docs/images/banner.png" />
+<img width="1200" height="auto" alt="Q&A Guru Banner" src="./docs/images/banner.png" />
 </div>
 
 An AI-powered Q&A Generator and Document Editor that transforms your documents into interactive learning materials. Built with React, TypeScript, and Google's Gemini AI.
