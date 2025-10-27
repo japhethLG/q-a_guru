@@ -105,9 +105,9 @@ export const Select: React.FC<SelectProps> = ({
 	return (
 		<div className={fullWidth ? 'w-full' : ''}>
 			{label && (
-				<label className="block text-sm font-medium text-gray-300 mb-1">
+				<label className="mb-1 block text-sm font-medium text-gray-300">
 					{label}
-					{required && <span className="text-red-400 ml-1">*</span>}
+					{required && <span className="ml-1 text-red-400">*</span>}
 				</label>
 			)}
 			<div ref={selectRef} className="relative">
@@ -136,11 +136,11 @@ export const Select: React.FC<SelectProps> = ({
 				</div>
 
 				{isOpen && !disabled && (
-					<div className="absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-2xl max-h-60 overflow-auto">
+					<div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-600 bg-gray-700 shadow-2xl">
 						{Object.entries(groupedOptions).map(([groupName, groupOptions]) => (
 							<div key={groupName}>
 								{groupName !== 'default' && (
-									<div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase border-b border-gray-600">
+									<div className="border-b border-gray-600 px-3 py-2 text-xs font-semibold text-gray-400 uppercase">
 										{groupName}
 									</div>
 								)}
@@ -148,9 +148,9 @@ export const Select: React.FC<SelectProps> = ({
 									<div
 										key={option.value}
 										onClick={() => !option.disabled && handleOptionClick(option.value)}
-										className={`px-3 py-2 cursor-pointer transition-colors ${
+										className={`cursor-pointer px-3 py-2 transition-colors ${
 											option.disabled
-												? 'opacity-50 cursor-not-allowed'
+												? 'cursor-not-allowed opacity-50'
 												: 'hover:bg-gray-600'
 										} ${
 											option.value === props.value
@@ -167,7 +167,7 @@ export const Select: React.FC<SelectProps> = ({
 				)}
 			</div>
 			{helperText && (
-				<p className={`text-xs mt-1 ${error ? 'text-red-400' : 'text-gray-500'}`}>
+				<p className={`mt-1 text-xs ${error ? 'text-red-400' : 'text-gray-500'}`}>
 					{helperText}
 				</p>
 			)}

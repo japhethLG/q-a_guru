@@ -74,7 +74,7 @@ export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 				isOpen={isOpen}
 				onOpenChange={onOpenChange}
 				headerContent={
-					<div className="flex items-center justify-between w-full">
+					<div className="flex w-full items-center justify-between">
 						<h4 className="font-semibold text-gray-200">Uploaded Files</h4>
 						{onReset && files.length > 0 && !disabled && (
 							<Button
@@ -114,20 +114,20 @@ export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 						{files.map((file, index) => (
 							<li
 								key={`${file.name}-${index}`}
-								className="p-2 rounded-md bg-gray-700 border border-transparent hover:bg-gray-600/80 hover:border-gray-500 transition-all duration-200"
+								className="rounded-md border border-transparent bg-gray-700 p-2 transition-all duration-200 hover:border-gray-500 hover:bg-gray-600/80"
 							>
 								<div className="flex items-start gap-3">
-									<div className="text-xl flex-shrink-0 mt-0.5">
+									<div className="mt-0.5 flex-shrink-0 text-xl">
 										{getFileIcon(file.name)}
 									</div>
-									<div className="flex-1 min-w-0">
+									<div className="min-w-0 flex-1">
 										<p
-											className="text-sm font-medium text-gray-200 truncate"
+											className="truncate text-sm font-medium text-gray-200"
 											title={file.name}
 										>
 											{file.name}
 										</p>
-										<p className="text-xs text-gray-400 mt-0.5">
+										<p className="mt-0.5 text-xs text-gray-400">
 											{formatFileSize(file.size)}
 										</p>
 									</div>
@@ -136,7 +136,7 @@ export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 											variant="icon"
 											size="base"
 											onClick={(e) => handleRemoveClick(index, file, e)}
-											className="hover:bg-red-500/20 flex-shrink-0"
+											className="flex-shrink-0 hover:bg-red-500/20"
 											title="Remove"
 										>
 											<XIcon className="size-4 text-red-400" />
@@ -147,7 +147,7 @@ export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 						))}
 					</ul>
 				) : (
-					<p className="text-center text-gray-500 text-xs py-4">
+					<p className="py-4 text-center text-xs text-gray-500">
 						No files uploaded yet
 					</p>
 				)}

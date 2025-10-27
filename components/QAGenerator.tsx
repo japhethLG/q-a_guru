@@ -237,14 +237,14 @@ export const QAGenerator: React.FC = () => {
 		: editorContent;
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full">
-			<div className="xl:col-span-3 flex flex-col gap-6 min-h-0">
+		<div className="grid h-full grid-cols-1 gap-6 xl:grid-cols-12">
+			<div className="flex min-h-0 flex-col gap-6 xl:col-span-3">
 				<FileUploadSection onFileChange={handleFileChange} />
 				<ConfigSection onGenerate={handleGenerate} onStop={handleStopGeneration} />
 			</div>
 
-			<div className="xl:col-span-9 grid grid-cols-1 grid-rows-2 lg:grid-rows-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
-				<div className="lg:col-span-2 min-h-0 flex overflow-hidden">
+			<div className="grid h-full grid-cols-1 grid-rows-2 gap-6 overflow-hidden lg:grid-cols-3 lg:grid-rows-1 xl:col-span-9">
+				<div className="flex min-h-0 overflow-hidden lg:col-span-2">
 					<EditorSection
 						content={contentToDisplay}
 						onContentChange={setEditorContent}
@@ -263,7 +263,7 @@ export const QAGenerator: React.FC = () => {
 						highlightedContent={highlightedContent}
 					/>
 				</div>
-				<div className="lg:col-span-1 min-h-0 flex overflow-hidden">
+				<div className="flex min-h-0 overflow-hidden lg:col-span-1">
 					<ChatSection
 						documentHtml={editorContent}
 						selectedText={selectedText}

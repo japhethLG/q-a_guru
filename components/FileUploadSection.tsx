@@ -87,7 +87,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 				</div>
 			)}
 			{isParsing && files.length > 0 && (
-				<p className="text-sm text-cyan-400 flex items-center gap-2 mt-3">
+				<p className="mt-3 flex items-center gap-2 text-sm text-cyan-400">
 					<LoaderIcon className="h-4 w-4" /> Parsing files...
 				</p>
 			)}

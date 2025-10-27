@@ -358,14 +358,14 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	};
 
 	return (
-		<div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg overflow-hidden w-full">
-			<div className="p-3 border-b border-gray-700 space-y-2">
+		<div className="flex h-full w-full flex-col overflow-hidden rounded-lg bg-gray-800 shadow-lg">
+			<div className="space-y-2 border-b border-gray-700 p-3">
 				<div className="flex items-center justify-between">
 					<h3 className="text-lg font-semibold text-cyan-400">AI Assistant</h3>
 					{messages.length > 0 && (
 						<button
 							onClick={handleResetChat}
-							className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors rounded hover:bg-gray-700"
+							className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-700 hover:text-cyan-400"
 							title="Clear chat history"
 							disabled={isLoading}
 						>
@@ -391,10 +391,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				/>
 			</div>
 
-			<div className="grow p-3 space-y-3 overflow-y-auto overflow-x-hidden">
+			<div className="grow space-y-3 overflow-x-hidden overflow-y-auto p-3">
 				{messages.length === 0 && !isLoading && (
-					<div className="flex flex-col items-center justify-center text-center text-gray-500 h-[calc(100%-100px)]">
-						<WandIcon className="h-10 w-10 mb-2" />
+					<div className="flex h-[calc(100%-100px)] flex-col items-center justify-center text-center text-gray-500">
+						<WandIcon className="mb-2 h-10 w-10" />
 						<p className="text-sm">
 							Select text in the editor to get contextual actions, or type a general
 							question below.
@@ -411,24 +411,24 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 							className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-[slideIn_0.3s_ease-out]`}
 						>
 							{msg.role === 'system' ? (
-								<p className="text-center text-xs text-gray-500 italic py-2 w-full">
+								<p className="w-full py-2 text-center text-xs text-gray-500 italic">
 									{msg.content}
 								</p>
 							) : (
 								<div
-									className={`max-w-[95%] px-4 py-3 rounded-lg shadow-md ${msg.role === 'user' ? 'bg-linear-to-br from-cyan-600 to-cyan-700 text-white text-right' : 'bg-gray-700 text-gray-200 border border-gray-600 text-left'}`}
+									className={`max-w-[95%] rounded-lg px-4 py-3 shadow-md ${msg.role === 'user' ? 'bg-linear-to-br from-cyan-600 to-cyan-700 text-right text-white' : 'border border-gray-600 bg-gray-700 text-left text-gray-200'}`}
 								>
 									{/* Show thinking indicator on top if this is the last message and streaming */}
 									{isStreamingState && (
-										<div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
+										<div className="mb-2 flex items-center gap-2 text-xs text-gray-400">
 											<LoaderIcon className="h-4 w-4 animate-spin text-cyan-400" />
 											<span>Thinking...</span>
 										</div>
 									)}
-									<div className="overflow-hidden wrap-break-words">
+									<div className="wrap-break-words overflow-hidden">
 										<ChatMessageContent
 											content={msg.content}
-											className={`text-sm ${msg.role === 'user' ? '[&_strong]:text-white [&_code]:bg-cyan-800/50 [&_code]:text-white' : '[&_strong]:text-cyan-300'}`}
+											className={`text-sm ${msg.role === 'user' ? '[&_code]:bg-cyan-800/50 [&_code]:text-white [&_strong]:text-white' : '[&_strong]:text-cyan-300'}`}
 											onHighlight={setHighlightedContent}
 										/>
 									</div>
@@ -440,13 +440,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				<div ref={messagesEndRef} />
 			</div>
 
-			<div className="p-3 border-t border-gray-700 bg-gray-800/80 backdrop-blur-sm">
+			<div className="border-t border-gray-700 bg-gray-800/80 p-3 backdrop-blur-sm">
 				<ContextDisplay
 					contextText={contextText}
 					onClear={() => setContextText('')}
 				/>
 				{contextText && (
-					<div className="grid grid-cols-3 gap-2 mb-2">
+					<div className="mb-2 grid grid-cols-3 gap-2">
 						{actionButtons.map((btn) => (
 							<Button
 								key={btn.label}
@@ -460,7 +460,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 						))}
 					</div>
 				)}
-				<div className="flex gap-2 items-start">
+				<div className="flex items-start gap-2">
 					<Textarea
 						ref={textareaRef}
 						value={input}

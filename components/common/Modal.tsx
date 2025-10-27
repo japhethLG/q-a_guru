@@ -68,18 +68,18 @@ export const Modal: React.FC<ModalProps> = ({
 
 			{/* Modal Content */}
 			<div
-				className={`relative bg-gray-800 rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
+				className={`relative w-full rounded-lg bg-gray-800 shadow-xl ${sizeClasses[size]} flex max-h-[90vh] flex-col`}
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Header */}
-				<div className="flex items-center justify-between p-6 border-b border-gray-700">
+				<div className="flex items-center justify-between border-b border-gray-700 p-6">
 					<h2 className="text-xl font-semibold text-white">{title}</h2>
 					<button
 						onClick={onClose}
-						className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+						className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
 						aria-label="Close modal"
 					>
-						<XIcon className="w-5 h-5" />
+						<XIcon className="h-5 w-5" />
 					</button>
 				</div>
 

@@ -17,9 +17,9 @@ export const ContextDisplay: React.FC<ContextDisplayProps> = ({
 	}
 
 	return (
-		<div className="mb-2 bg-gray-700/50 border border-gray-600 rounded-lg overflow-hidden transition-all duration-300">
+		<div className="mb-2 overflow-hidden rounded-lg border border-gray-600 bg-gray-700/50 transition-all duration-300">
 			<div
-				className="flex justify-between items-center p-2 cursor-pointer"
+				className="flex cursor-pointer items-center justify-between p-2"
 				onClick={() => setIsExpanded(!isExpanded)}
 			>
 				<div className="flex items-center gap-2">
@@ -32,7 +32,7 @@ export const ContextDisplay: React.FC<ContextDisplayProps> = ({
 							e.stopPropagation();
 							onClear();
 						}}
-						className="p-1 hover:bg-gray-600 rounded-full"
+						className="rounded-full p-1 hover:bg-gray-600"
 						title="Clear context for next message"
 					>
 						<XIcon className="h-3 w-3 text-gray-400" />
@@ -57,7 +57,7 @@ export const ContextDisplay: React.FC<ContextDisplayProps> = ({
 			>
 				<div className="p-3 pt-0">
 					<div
-						className="text-xs text-gray-300 bg-gray-900/50 p-2 rounded max-h-24 overflow-y-auto"
+						className="max-h-24 overflow-y-auto rounded bg-gray-900/50 p-2 text-xs text-gray-300"
 						dangerouslySetInnerHTML={{ __html: contextText }}
 					></div>
 				</div>

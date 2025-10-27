@@ -44,10 +44,10 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 		<CollapsibleSection
 			title="Version History"
 			icon={<HistoryIcon className="h-5 w-5" />}
-			className="flex flex-col flex-1 min-h-0"
+			className="flex min-h-0 flex-1 flex-col"
 			headerClassName="mb-3 flex-shrink-0"
 		>
-			<div className="flex-1 overflow-y-auto pr-2 -mr-2 min-h-0">
+			<div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
 				{versions.length > 0 ? (
 					<ul className="space-y-2">
 						{[...versions].reverse().map((version) => {
@@ -58,33 +58,33 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 								<li
 									key={version.id}
 									onClick={() => handleVersionClick(version)}
-									className={`p-3 rounded-md transition-all duration-200 cursor-pointer border-l-4 ${
+									className={`cursor-pointer rounded-md border-l-4 p-3 transition-all duration-200 ${
 										isPreviewing
-											? 'bg-gray-600 border-cyan-400 ring-2 ring-cyan-400'
+											? 'border-cyan-400 bg-gray-600 ring-2 ring-cyan-400'
 											: isCurrent
-												? 'bg-gray-700/80 border-cyan-600'
-												: 'bg-gray-700 border-transparent hover:bg-gray-600/80 hover:border-gray-500'
+												? 'border-cyan-600 bg-gray-700/80'
+												: 'border-transparent bg-gray-700 hover:border-gray-500 hover:bg-gray-600/80'
 									}`}
 								>
-									<div className="flex justify-between items-center gap-2">
+									<div className="flex items-center justify-between gap-2">
 										<div className="overflow-hidden">
 											<p className="text-sm font-medium text-gray-200">
 												{new Date(version.timestamp).toLocaleString()}
 											</p>
 											<p
-												className="text-xs text-gray-400 mt-1 italic truncate"
+												className="mt-1 truncate text-xs text-gray-400 italic"
 												title={version.reason}
 											>
 												{version.reason}
 											</p>
 										</div>
-										<div className="flex items-center space-x-2 flex-shrink-0">
+										<div className="flex flex-shrink-0 items-center space-x-2">
 											<button
 												onClick={(e) => {
 													e.stopPropagation();
 													handleRevertClick(version.id);
 												}}
-												className="p-1 hover:bg-cyan-500/20 rounded-full"
+												className="rounded-full p-1 hover:bg-cyan-500/20"
 												title="Revert to this version"
 											>
 												<HistoryIcon className="h-4 w-4 text-cyan-400" />
@@ -94,7 +94,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 													e.stopPropagation();
 													handleDeleteClick(version.id);
 												}}
-												className="p-1 hover:bg-red-500/20 rounded-full"
+												className="rounded-full p-1 hover:bg-red-500/20"
 												title="Delete version"
 											>
 												<TrashIcon className="h-4 w-4 text-red-400" />
@@ -106,7 +106,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 						})}
 					</ul>
 				) : (
-					<p className="text-center text-gray-500 text-sm py-8">
+					<p className="py-8 text-center text-sm text-gray-500">
 						Generate a document to start version history.
 					</p>
 				)}

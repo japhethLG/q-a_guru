@@ -6,10 +6,10 @@ import { AppContextProvider } from './contexts/AppContext';
 export default function App() {
 	return (
 		<AppContextProvider>
-			<div className="h-screen bg-gray-900 text-gray-100 flex flex-col font-sans">
+			<div className="flex h-screen flex-col bg-gray-900 font-sans text-gray-100">
 				<Header />
 
-				<main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-hidden">
+				<main className="container mx-auto flex-grow overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
 					<div className="h-full">
 						<QAGenerator />
 					</div>

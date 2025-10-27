@@ -89,29 +89,29 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 						([type, templates]: [string, QuestionTemplate[]]) => (
 							<div
 								key={type}
-								className="border border-gray-700 rounded-lg overflow-hidden"
+								className="overflow-hidden rounded-lg border border-gray-700"
 							>
-								<div className="bg-gray-700/50 px-4 py-2 border-b border-gray-700">
+								<div className="border-b border-gray-700 bg-gray-700/50 px-4 py-2">
 									<h4 className="font-medium text-white capitalize">{type}</h4>
 								</div>
 								<div className="divide-y divide-gray-700">
 									{templates.map((template) => (
 										<div
 											key={template.id}
-											className="flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+											className="flex items-center justify-between p-4 transition-colors hover:bg-gray-800"
 										>
 											<div className="flex items-center gap-3">
 												{selectedTemplateId === template.id && (
-													<CheckIcon className="w-5 h-5 text-cyan-500" />
+													<CheckIcon className="h-5 w-5 text-cyan-500" />
 												)}
 												<div>
 													<div className="font-medium text-white">
 														{template.name}
 														{template.isDefault && (
-															<span className="text-xs text-gray-400 ml-2">(Default)</span>
+															<span className="ml-2 text-xs text-gray-400">(Default)</span>
 														)}
 													</div>
-													<div className="text-xs text-gray-400 font-mono truncate max-w-md">
+													<div className="max-w-md truncate font-mono text-xs text-gray-400">
 														{template.templateString.split('\n')[0]}...
 													</div>
 												</div>
@@ -131,7 +131,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 													size="sm"
 													onClick={() => handleEdit(template)}
 												>
-													<EditIcon className="w-4 h-4" />
+													<EditIcon className="h-4 w-4" />
 												</Button>
 												<Button
 													variant="icon"
@@ -139,7 +139,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 													onClick={() => handleDelete(template.id)}
 													disabled={template.isDefault}
 												>
-													<TrashIcon className="w-4 h-4" />
+													<TrashIcon className="h-4 w-4" />
 												</Button>
 											</div>
 										</div>

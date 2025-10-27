@@ -144,20 +144,16 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 						className={`${inputOnlyClassName} px-3`}
 						placeholder="Enter number"
 					/>
-					<div className="absolute right-2 top-0 bottom-0 flex flex-col items-center justify-center">
+					<div className="absolute top-0 right-2 bottom-0 flex flex-col items-center justify-center">
 						<button
 							type="button"
 							onClick={handleIncrement}
 							disabled={disabled || (max !== undefined && value >= max)}
-							className={`
-								w-5 h-3 flex items-center justify-center 
-								${disabled || (max !== undefined && value >= max) ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-600 cursor-pointer'}
-								rounded-t transition-colors duration-150
-							`}
+							className={`flex h-3 w-5 items-center justify-center ${disabled || (max !== undefined && value >= max) ? 'cursor-not-allowed opacity-30' : 'cursor-pointer hover:bg-gray-600'} rounded-t transition-colors duration-150`}
 							tabIndex={-1}
 						>
 							<svg
-								className="w-3 h-3 text-gray-400"
+								className="h-3 w-3 text-gray-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -170,20 +166,16 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 								/>
 							</svg>
 						</button>
-						<div className="w-5 h-px bg-gray-600"></div>
+						<div className="h-px w-5 bg-gray-600"></div>
 						<button
 							type="button"
 							onClick={handleDecrement}
 							disabled={disabled || value <= min}
-							className={`
-								w-5 h-3 flex items-center justify-center 
-								${disabled || value <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-600 cursor-pointer'}
-								rounded-b transition-colors duration-150
-							`}
+							className={`flex h-3 w-5 items-center justify-center ${disabled || value <= min ? 'cursor-not-allowed opacity-30' : 'cursor-pointer hover:bg-gray-600'} rounded-b transition-colors duration-150`}
 							tabIndex={-1}
 						>
 							<svg
-								className="w-3 h-3 text-gray-400"
+								className="h-3 w-3 text-gray-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -209,22 +201,18 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 							type="button"
 							onClick={() => handlePresetClick(preset)}
 							disabled={disabled}
-							className={`
-								px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200
-								${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-								${
-									value === preset
-										? 'bg-cyan-600 text-white hover:bg-cyan-700'
-										: 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-								}
-							`}
+							className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${
+								value === preset
+									? 'bg-cyan-600 text-white hover:bg-cyan-700'
+									: 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+							} `}
 						>
 							{preset}
 						</button>
 					))}
 					{/* Custom Input Button - shown alongside presets */}
 					{showInput && (
-						<div className="relative flex-1 min-w-[120px]">
+						<div className="relative min-w-[120px] flex-1">
 							<input
 								type="number"
 								value={inputValue}
@@ -235,34 +223,23 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 								max={max}
 								step={step}
 								disabled={disabled}
-								className={`
-									w-full px-3 py-1.5 pr-8 rounded-md text-sm font-medium 
-									bg-gray-700 border transition-all duration-200
-									disabled:opacity-50 disabled:cursor-not-allowed
-									${
-										error
-											? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
-											: 'border-gray-600 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
-									}
-									text-gray-300 placeholder-gray-500 outline-none
-									[-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-								`}
+								className={`w-full rounded-md border bg-gray-700 px-3 py-1.5 pr-8 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+									error
+										? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+										: 'border-gray-600 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
+								} text-gray-300 placeholder-gray-500 outline-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 								placeholder="Custom"
 							/>
-							<div className="absolute right-1.5 top-0 bottom-0 flex flex-col items-center justify-center">
+							<div className="absolute top-0 right-1.5 bottom-0 flex flex-col items-center justify-center">
 								<button
 									type="button"
 									onClick={handleIncrement}
 									disabled={disabled || (max !== undefined && value >= max)}
-									className={`
-										w-4 h-2.5 flex items-center justify-center 
-										${disabled || (max !== undefined && value >= max) ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-600 cursor-pointer'}
-										rounded-t transition-colors duration-150
-									`}
+									className={`flex h-2.5 w-4 items-center justify-center ${disabled || (max !== undefined && value >= max) ? 'cursor-not-allowed opacity-30' : 'cursor-pointer hover:bg-gray-600'} rounded-t transition-colors duration-150`}
 									tabIndex={-1}
 								>
 									<svg
-										className="w-2.5 h-2.5 text-gray-400"
+										className="h-2.5 w-2.5 text-gray-400"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -275,20 +252,16 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 										/>
 									</svg>
 								</button>
-								<div className="w-4 h-px bg-gray-600"></div>
+								<div className="h-px w-4 bg-gray-600"></div>
 								<button
 									type="button"
 									onClick={handleDecrement}
 									disabled={disabled || value <= min}
-									className={`
-										w-4 h-2.5 flex items-center justify-center 
-										${disabled || value <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-600 cursor-pointer'}
-										rounded-b transition-colors duration-150
-									`}
+									className={`flex h-2.5 w-4 items-center justify-center ${disabled || value <= min ? 'cursor-not-allowed opacity-30' : 'cursor-pointer hover:bg-gray-600'} rounded-b transition-colors duration-150`}
 									tabIndex={-1}
 								>
 									<svg
-										className="w-2.5 h-2.5 text-gray-400"
+										className="h-2.5 w-2.5 text-gray-400"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -318,16 +291,11 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 						value={value}
 						onChange={handleSliderChange}
 						disabled={disabled}
-						className="
-							w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer 
-							outline-none disabled:opacity-50 disabled:cursor-not-allowed
-							accent-cyan-500
-							hover:accent-cyan-400 transition-colors
-						"
+						className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-700 accent-cyan-500 transition-colors outline-none hover:accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
-					<div className="flex justify-between text-xs text-gray-500 mt-1">
+					<div className="mt-1 flex justify-between text-xs text-gray-500">
 						<span>{min}</span>
-						<span className="text-cyan-400 font-medium">{value}</span>
+						<span className="font-medium text-cyan-400">{value}</span>
 						<span>{max}</span>
 					</div>
 				</div>

@@ -61,10 +61,10 @@ export const VersionsDropdown: React.FC<VersionsDropdownProps> = ({
 		<div className="flex items-center gap-2">
 			{versions.length > 0 && (
 				<span
-					className={`text-sm px-2 py-0.5 rounded ${
+					className={`rounded px-2 py-0.5 text-sm ${
 						isLatestVersion
-							? 'text-cyan-400 bg-cyan-400/10'
-							: 'text-gray-400 bg-gray-700/50'
+							? 'bg-cyan-400/10 text-cyan-400'
+							: 'bg-gray-700/50 text-gray-400'
 					}`}
 				>
 					V{activeVersionNumber}
@@ -105,24 +105,24 @@ export const VersionsDropdown: React.FC<VersionsDropdownProps> = ({
 								<li
 									key={version.id}
 									onClick={() => handleVersionClick(version)}
-									className={`p-2 rounded-md transition-all duration-200 cursor-pointer border-l-4 ${
+									className={`cursor-pointer rounded-md border-l-4 p-2 transition-all duration-200 ${
 										isPreviewing
-											? 'bg-gray-600 border-cyan-400'
+											? 'border-cyan-400 bg-gray-600'
 											: isCurrent
-												? 'bg-gray-700/80 border-cyan-600'
-												: 'bg-gray-700 border-transparent hover:bg-gray-600/80 hover:border-gray-500'
+												? 'border-cyan-600 bg-gray-700/80'
+												: 'border-transparent bg-gray-700 hover:border-gray-500 hover:bg-gray-600/80'
 									}`}
 								>
-									<div className="flex justify-between items-center gap-2">
-										<div className="overflow-hidden flex-1">
+									<div className="flex items-center justify-between gap-2">
+										<div className="flex-1 overflow-hidden">
 											<p className="text-xs font-medium text-gray-200">
 												{new Date(version.timestamp).toLocaleString()}
 											</p>
-											<p className="text-xs text-gray-400 truncate" title={version.reason}>
+											<p className="truncate text-xs text-gray-400" title={version.reason}>
 												{version.reason}
 											</p>
 										</div>
-										<div className="flex items-center space-x-1 flex-shrink-0">
+										<div className="flex flex-shrink-0 items-center space-x-1">
 											<Button
 												variant="icon"
 												size="base"
@@ -151,7 +151,7 @@ export const VersionsDropdown: React.FC<VersionsDropdownProps> = ({
 						})}
 					</ul>
 				) : (
-					<p className="text-center text-gray-500 text-xs py-4">No versions yet</p>
+					<p className="py-4 text-center text-xs text-gray-500">No versions yet</p>
 				)}
 			</Dropdown>
 		</div>

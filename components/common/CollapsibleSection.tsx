@@ -41,9 +41,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 	return (
 		<div className={finalClassName}>
 			<div
-				className={`flex justify-between items-center ${defaultHeaderMargin} ${headerClassName}`}
+				className={`flex items-center justify-between ${defaultHeaderMargin} ${headerClassName}`}
 			>
-				<h3 className="text-lg font-semibold text-cyan-400 flex items-center gap-2">
+				<h3 className="flex items-center gap-2 text-lg font-semibold text-cyan-400">
 					{icon}
 					{title}
 				</h3>
@@ -52,7 +52,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 						e.stopPropagation();
 						setIsCollapsed(!isCollapsed);
 					}}
-					className="p-1 hover:bg-gray-700 rounded-md transition-colors"
+					className="rounded-md p-1 transition-colors hover:bg-gray-700"
 					title={isCollapsed ? 'Expand' : 'Collapse'}
 				>
 					{isCollapsed ? (

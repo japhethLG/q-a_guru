@@ -152,8 +152,8 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
 			{/* Errors */}
 			{errors.length > 0 && (
-				<div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
-					<ul className="list-disc list-inside text-sm text-red-400 space-y-1">
+				<div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
+					<ul className="list-inside list-disc space-y-1 text-sm text-red-400">
 						{errors.map((error, idx) => (
 							<li key={idx}>{error}</li>
 						))}
@@ -169,38 +169,38 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 				<div className="flex gap-4">
 					{/* Help Sidebar */}
 					<div className="w-72 shrink-0">
-						<div className="space-y-2 sticky top-4">
+						<div className="sticky top-4 space-y-2">
 							{/* Available Variables */}
-							<div className="bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden">
+							<div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800/50">
 								<button
 									onClick={() =>
 										setExpandedSection(
 											expandedSection === 'variables' ? null : 'variables'
 										)
 									}
-									className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-700/50 transition-colors"
+									className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-gray-700/50"
 								>
-									<h4 className="text-sm font-semibold text-white flex items-center gap-2">
-										<EditIcon className="w-4 h-4 text-cyan-400" />
+									<h4 className="flex items-center gap-2 text-sm font-semibold text-white">
+										<EditIcon className="h-4 w-4 text-cyan-400" />
 										Available Variables
 									</h4>
 									{expandedSection === 'variables' ? (
-										<ChevronUpIcon className="w-4 h-4 text-gray-400" />
+										<ChevronUpIcon className="h-4 w-4 text-gray-400" />
 									) : (
-										<ChevronDownIcon className="w-4 h-4 text-gray-400" />
+										<ChevronDownIcon className="h-4 w-4 text-gray-400" />
 									)}
 								</button>
 								{expandedSection === 'variables' && (
-									<div className="p-4 space-y-2 max-h-64 overflow-y-auto">
+									<div className="max-h-64 space-y-2 overflow-y-auto p-4">
 										{availableVariables.map(({ variable, description }) => (
 											<div key={variable} className="group">
 												<button
 													onClick={() => insertVariable(variable)}
-													className="text-cyan-400 hover:text-cyan-300 font-mono bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-all"
+													className="rounded bg-gray-700 px-2 py-1 font-mono text-xs text-cyan-400 transition-all hover:bg-gray-600 hover:text-cyan-300"
 												>
 													{variable}
 												</button>
-												<span className="text-gray-400 ml-2 text-xs">{description}</span>
+												<span className="ml-2 text-xs text-gray-400">{description}</span>
 											</div>
 										))}
 									</div>
@@ -208,7 +208,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 							</div>
 							{/* Answer Format Selector */}
 							<div className="mt-4">
-								<label className="block text-sm font-semibold text-white mb-2">
+								<label className="mb-2 block text-sm font-semibold text-white">
 									Answer Format
 								</label>
 								<div className="flex gap-2">

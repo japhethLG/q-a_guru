@@ -98,21 +98,18 @@ export const FileInput: React.FC<FileInputProps> = ({
 				onDragOver={handleDragOver}
 				onDragLeave={handleDragLeave}
 				onDrop={handleDrop}
-				className={`
-					relative border-2 border-dashed rounded-lg p-6 text-center transition-colors
-					${
-						disabled
-							? 'border-gray-700 cursor-not-allowed opacity-50'
-							: isDragging
-								? 'border-cyan-500 bg-cyan-500/10'
-								: 'border-gray-600 hover:border-cyan-500 cursor-pointer'
-					}
-				`}
+				className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+					disabled
+						? 'cursor-not-allowed border-gray-700 opacity-50'
+						: isDragging
+							? 'border-cyan-500 bg-cyan-500/10'
+							: 'cursor-pointer border-gray-600 hover:border-cyan-500'
+				} `}
 			>
 				<UploadCloudIcon className="mx-auto h-12 w-12 text-gray-500" />
-				<label className="mt-2 text-sm font-medium text-gray-300 cursor-pointer">
+				<label className="mt-2 cursor-pointer text-sm font-medium text-gray-300">
 					<span className="text-cyan-400">{placeholder}</span>
-					{helperText && <p className="text-xs text-gray-500 mt-1">{helperText}</p>}
+					{helperText && <p className="mt-1 text-xs text-gray-500">{helperText}</p>}
 				</label>
 				<input
 					ref={fileInputRef}
@@ -137,7 +134,7 @@ export const FileInput: React.FC<FileInputProps> = ({
 			)}
 
 			{maxFiles && (
-				<p className="text-xs text-gray-500 mt-2">
+				<p className="mt-2 text-xs text-gray-500">
 					{files.length} / {maxFiles} files
 				</p>
 			)}

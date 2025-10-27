@@ -73,7 +73,7 @@ export const FileList: React.FC<FileListProps> = ({
 
 		if ('error' in file && file.error) {
 			return (
-				<div className="flex items-center gap-1 text-red-400 text-xs">
+				<div className="flex items-center gap-1 text-xs text-red-400">
 					<AlertTriangleIcon className="h-3 w-3" />
 					<span className="truncate">{file.error}</span>
 				</div>
@@ -83,21 +83,21 @@ export const FileList: React.FC<FileListProps> = ({
 		switch (file.status) {
 			case 'uploaded':
 				return (
-					<div className="flex items-center gap-1 text-green-400 text-xs">
+					<div className="flex items-center gap-1 text-xs text-green-400">
 						<CheckIcon className="h-3 w-3" />
 						<span>Uploaded</span>
 					</div>
 				);
 			case 'uploading':
 				return (
-					<div className="flex items-center gap-1 text-cyan-400 text-xs">
-						<div className="animate-spin h-3 w-3 border-2 border-cyan-400 border-t-transparent rounded-full" />
+					<div className="flex items-center gap-1 text-xs text-cyan-400">
+						<div className="h-3 w-3 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
 						<span>Uploading...</span>
 					</div>
 				);
 			case 'error':
 				return (
-					<div className="flex items-center gap-1 text-red-400 text-xs">
+					<div className="flex items-center gap-1 text-xs text-red-400">
 						<AlertTriangleIcon className="h-3 w-3" />
 						<span>Error</span>
 					</div>
@@ -109,7 +109,7 @@ export const FileList: React.FC<FileListProps> = ({
 
 	if (variant === 'cards') {
 		return (
-			<div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${className}`}>
+			<div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${className}`}>
 				{displayedFiles.map((file, index) => {
 					const fileSize = file instanceof File ? file.size : file.size;
 					const fileName = file instanceof File ? file.name : file.name;
@@ -118,21 +118,21 @@ export const FileList: React.FC<FileListProps> = ({
 					return (
 						<div
 							key={index}
-							className="relative bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-colors"
+							className="relative rounded-lg border border-gray-600 bg-gray-700 p-3 transition-colors hover:border-gray-500"
 						>
 							<div className="flex items-start gap-3">
-								<div className="text-2xl flex-shrink-0">{getFileIcon(file)}</div>
-								<div className="flex-1 min-w-0">
+								<div className="flex-shrink-0 text-2xl">{getFileIcon(file)}</div>
+								<div className="min-w-0 flex-1">
 									<div className="flex items-start justify-between gap-2">
-										<div className="flex-1 min-w-0">
+										<div className="min-w-0 flex-1">
 											<p
-												className="text-sm font-medium text-gray-200 truncate"
+												className="truncate text-sm font-medium text-gray-200"
 												title={fileName}
 											>
 												{fileName}
 											</p>
 											{fileSize && (
-												<p className="text-xs text-gray-400 mt-0.5">
+												<p className="mt-0.5 text-xs text-gray-400">
 													{formatFileSize(fileSize)}
 												</p>
 											)}
@@ -145,7 +145,7 @@ export const FileList: React.FC<FileListProps> = ({
 													e.stopPropagation();
 													onRemove(index, file);
 												}}
-												className="hover:bg-red-500/20 flex-shrink-0"
+												className="flex-shrink-0 hover:bg-red-500/20"
 											>
 												<XIcon className="h-4 w-4 text-red-400" />
 											</Button>
@@ -158,7 +158,7 @@ export const FileList: React.FC<FileListProps> = ({
 					);
 				})}
 				{hiddenCount > 0 && (
-					<div className="col-span-full text-center text-xs text-gray-500 py-2">
+					<div className="col-span-full py-2 text-center text-xs text-gray-500">
 						+{hiddenCount} more file{hiddenCount > 1 ? 's' : ''}
 					</div>
 				)}
@@ -177,19 +177,19 @@ export const FileList: React.FC<FileListProps> = ({
 					return (
 						<div
 							key={index}
-							className="flex items-center gap-3 bg-gray-700 p-3 rounded-md border border-gray-600 hover:border-gray-500 transition-colors"
+							className="flex items-center gap-3 rounded-md border border-gray-600 bg-gray-700 p-3 transition-colors hover:border-gray-500"
 						>
-							<div className="text-xl flex-shrink-0">{getFileIcon(file)}</div>
-							<div className="flex-1 min-w-0">
+							<div className="flex-shrink-0 text-xl">{getFileIcon(file)}</div>
+							<div className="min-w-0 flex-1">
 								<div className="flex items-center justify-between gap-2">
 									<p
-										className="text-sm font-medium text-gray-200 truncate"
+										className="truncate text-sm font-medium text-gray-200"
 										title={fileName}
 									>
 										{fileName}
 									</p>
 									{fileSize && (
-										<p className="text-xs text-gray-400 flex-shrink-0">
+										<p className="flex-shrink-0 text-xs text-gray-400">
 											{formatFileSize(fileSize)}
 										</p>
 									)}
@@ -204,7 +204,7 @@ export const FileList: React.FC<FileListProps> = ({
 										e.stopPropagation();
 										onRemove(index, file);
 									}}
-									className="hover:bg-red-500/20 flex-shrink-0"
+									className="flex-shrink-0 hover:bg-red-500/20"
 								>
 									<XIcon className="h-4 w-4 text-red-400" />
 								</Button>
@@ -213,7 +213,7 @@ export const FileList: React.FC<FileListProps> = ({
 					);
 				})}
 				{hiddenCount > 0 && (
-					<div className="text-center text-xs text-gray-500 py-2">
+					<div className="py-2 text-center text-xs text-gray-500">
 						+{hiddenCount} more file{hiddenCount > 1 ? 's' : ''}
 					</div>
 				)}
@@ -232,13 +232,13 @@ export const FileList: React.FC<FileListProps> = ({
 				return (
 					<div
 						key={index}
-						className="flex items-center justify-between bg-gray-700 p-2 rounded-md hover:bg-gray-650 transition-colors"
+						className="hover:bg-gray-650 flex items-center justify-between rounded-md bg-gray-700 p-2 transition-colors"
 					>
-						<div className="flex items-center space-x-2 overflow-hidden flex-1 min-w-0">
-							<span className="text-lg flex-shrink-0">{getFileIcon(file)}</span>
-							<FileTextIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
-							<div className="flex-1 min-w-0">
-								<p className="text-sm text-gray-200 truncate" title={fileName}>
+						<div className="flex min-w-0 flex-1 items-center space-x-2 overflow-hidden">
+							<span className="flex-shrink-0 text-lg">{getFileIcon(file)}</span>
+							<FileTextIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
+							<div className="min-w-0 flex-1">
+								<p className="truncate text-sm text-gray-200" title={fileName}>
 									{fileName}
 								</p>
 								{fileSize && (
@@ -255,7 +255,7 @@ export const FileList: React.FC<FileListProps> = ({
 									e.stopPropagation();
 									onRemove(index, file);
 								}}
-								className="hover:bg-red-500/20 ml-2 flex-shrink-0"
+								className="ml-2 flex-shrink-0 hover:bg-red-500/20"
 							>
 								<XIcon className="h-4 w-4 text-red-400" />
 							</Button>
@@ -264,7 +264,7 @@ export const FileList: React.FC<FileListProps> = ({
 				);
 			})}
 			{hiddenCount > 0 && (
-				<div className="text-center text-xs text-gray-500 py-2">
+				<div className="py-2 text-center text-xs text-gray-500">
 					+{hiddenCount} more file{hiddenCount > 1 ? 's' : ''}
 				</div>
 			)}

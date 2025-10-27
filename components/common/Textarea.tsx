@@ -52,7 +52,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 		return (
 			<div className={wrapperClassName}>
 				{label && (
-					<label className="block text-sm font-medium text-gray-300 mb-1">
+					<label className="mb-1 block text-sm font-medium text-gray-300">
 						{label}
 					</label>
 				)}
@@ -63,7 +63,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 					{...props}
 				/>
 				{helperText && (
-					<p className={`text-xs mt-1 ${error ? 'text-red-400' : 'text-gray-500'}`}>
+					<p className={`mt-1 text-xs ${error ? 'text-red-400' : 'text-gray-500'}`}>
 						{helperText}
 					</p>
 				)}

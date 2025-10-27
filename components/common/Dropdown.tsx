@@ -103,10 +103,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
 			<div className={buttonClassName}>{button}</div>
 			{shouldShowDropdown() && (
 				<div
-					className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 ${width} bg-gray-700 border border-gray-600 rounded-md shadow-2xl z-30 ${maxHeight} overflow-hidden flex flex-col ${dropdownClassName} transition-opacity duration-200 ${className}`}
+					className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 ${width} z-30 rounded-md border border-gray-600 bg-gray-700 shadow-2xl ${maxHeight} flex flex-col overflow-hidden ${dropdownClassName} transition-opacity duration-200 ${className}`}
 				>
 					{(header || headerContent) && (
-						<div className="p-3 border-b border-gray-600 flex justify-between items-center flex-shrink-0">
+						<div className="flex flex-shrink-0 items-center justify-between border-b border-gray-600 p-3">
 							{headerContent || (
 								<h4 className="font-semibold text-gray-200">{header}</h4>
 							)}
@@ -116,14 +116,14 @@ export const Dropdown: React.FC<DropdownProps> = ({
 										e.stopPropagation();
 										handleOpenChange(false);
 									}}
-									className="p-1 hover:bg-gray-600 rounded"
+									className="rounded p-1 hover:bg-gray-600"
 								>
 									<XIcon className="h-4 w-4" />
 								</button>
 							)}
 						</div>
 					)}
-					<div className="overflow-y-auto flex-1">{children}</div>
+					<div className="flex-1 overflow-y-auto">{children}</div>
 				</div>
 			)}
 		</div>

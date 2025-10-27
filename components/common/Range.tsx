@@ -82,7 +82,7 @@ export const Range: React.FC<RangeProps> = ({
 	return (
 		<div className={fullWidth ? 'w-full' : ''}>
 			{label && (
-				<div className="flex items-center justify-between mb-1">
+				<div className="mb-1 flex items-center justify-between">
 					<label className="block text-sm font-medium text-gray-300">
 						{label}
 						{showValue && props.value !== undefined && (
@@ -101,7 +101,7 @@ export const Range: React.FC<RangeProps> = ({
 				/>
 			</div>
 			{helperText && (
-				<p className={`text-xs mt-1 ${error ? 'text-red-400' : 'text-gray-500'}`}>
+				<p className={`mt-1 text-xs ${error ? 'text-red-400' : 'text-gray-500'}`}>
 					{helperText}
 				</p>
 			)}

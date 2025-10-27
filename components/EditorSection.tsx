@@ -117,8 +117,8 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	};
 
 	return (
-		<div className="flex flex-col flex-1 w-full bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-			<div className="flex justify-between items-center p-3 border-b border-gray-700 shrink-0">
+		<div className="flex w-full flex-1 flex-col overflow-hidden rounded-lg bg-gray-800 shadow-lg">
+			<div className="flex shrink-0 items-center justify-between border-b border-gray-700 p-3">
 				<h3 className="text-lg font-semibold text-cyan-400">Document Editor</h3>
 				<div className="flex items-center gap-2">
 					<VersionsDropdown
@@ -149,21 +149,21 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 			</div>
 
 			{isPreviewing && (
-				<div className="bg-yellow-500 text-black px-4 py-2 text-sm font-semibold flex justify-between items-center shrink-0">
+				<div className="flex shrink-0 items-center justify-between bg-yellow-500 px-4 py-2 text-sm font-semibold text-black">
 					<span>You are previewing a past version. The editor is read-only.</span>
 					<Button
 						variant="secondary"
 						size="sm"
 						onClick={onExitPreview}
 						icon={<XIcon className="h-4 w-4" />}
-						className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
+						className="bg-yellow-600 font-bold text-white hover:bg-yellow-700"
 					>
 						Exit Preview
 					</Button>
 				</div>
 			)}
 
-			<div className="grow flex flex-col" style={{ minHeight: 0 }}>
+			<div className="flex grow flex-col" style={{ minHeight: 0 }}>
 				<TinyMCEEditor
 					value={content}
 					onChange={handleEditorChange}

@@ -77,11 +77,11 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	return (
 		<CollapsibleSection
 			title="2. Configure Q&A"
-			className="flex-1 min-h-0 flex flex-col"
+			className="flex min-h-0 flex-1 flex-col"
 			contentClassName="flex-1 flex flex-col min-h-0"
 		>
-			<div className="flex-1 flex flex-col min-h-0">
-				<div className="space-y-4 overflow-y-auto flex-1 pr-2">
+			<div className="flex min-h-0 flex-1 flex-col">
+				<div className="flex-1 space-y-4 overflow-y-auto pr-2">
 					<Input
 						label="API Key (Optional)"
 						type="password"
@@ -120,21 +120,21 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					/>
 
 					{/* Template Management */}
-					<div className="border border-gray-700 rounded-lg p-3 bg-gray-800/50">
-						<div className="flex items-center justify-between mb-2">
+					<div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
+						<div className="mb-2 flex items-center justify-between">
 							<label className="text-sm font-medium">Output Template</label>
 							<Button
 								variant="icon"
 								size="sm"
 								onClick={() => setIsTemplateModalOpen(true)}
 							>
-								<SettingsIcon className="w-4 h-4" />
+								<SettingsIcon className="h-4 w-4" />
 							</Button>
 						</div>
 						{selectedTemplate ? (
 							<div className="text-sm text-gray-300">
 								<div className="font-medium">{selectedTemplate.name}</div>
-								<div className="text-xs text-gray-500 mt-1">
+								<div className="mt-1 text-xs text-gray-500">
 									Format: {selectedTemplate.answerFormat}
 								</div>
 							</div>
@@ -172,7 +172,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 					/>
 					<div>
 						<label className="text-sm font-medium">Difficulty</label>
-						<div className="flex space-x-2 mt-1">
+						<div className="mt-1 flex space-x-2">
 							{(['easy', 'medium', 'hard'] as const).map((d) => (
 								<Button
 									key={d}
@@ -207,7 +207,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 							<SparklesIcon className="h-5 w-5" />
 						)
 					}
-					className="w-full mt-4"
+					className="mt-4 w-full"
 				>
 					{isGenerating && onStop
 						? 'Stop Generation'

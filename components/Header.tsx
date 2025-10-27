@@ -3,9 +3,9 @@ import { FileTextIcon, SparklesIcon } from './common/Icons';
 
 export const Header: React.FC = () => {
 	return (
-		<header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-10 flex-shrink-0">
+		<header className="sticky top-0 z-10 flex-shrink-0 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
 			<div className="container mx-auto px-4 sm:px-6 lg:px-8">
-				<div className="flex items-center justify-between h-16">
+				<div className="flex h-16 items-center justify-between">
 					<div className="flex items-center space-x-3">
 						<SparklesIcon className="h-7 w-7 text-cyan-400" />
 						<h1 className="text-xl font-bold text-gray-50">Q&A Guru</h1>

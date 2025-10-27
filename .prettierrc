@@ -4,5 +4,6 @@
 	"trailingComma": "es5",
 	"semi": true,
 	"tabWidth": 1,
-	"useTabs": true
+	"useTabs": true,
+	"plugins": ["prettier-plugin-tailwindcss"]
 }
