@@ -204,17 +204,3 @@ q-a_guru/
 The app is configured for GitHub Pages deployment. The `gh-pages` branch contains the built files.
 
 **Deployed at**: https://japhethLG.github.io/q-a_guru/
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Contributing
-
-Contributions welcome! Please feel free to submit a Pull Request.
-
-## Acknowledgments
-
-- **Google Gemini AI** - Powering the Q&A generation and chat features
-- **Quill** - Rich text editor
-- **Vite** - Development tooling
