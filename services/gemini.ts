@@ -6,6 +6,7 @@ import {
 } from '@google/genai';
 import { QaConfig, ChatConfig, ChatMessage } from '../types';
 import { prompts, toolDeclarations } from './prompts';
+import { tryReplaceExact, tryReplaceFuzzy } from './htmlReplace';
 import { getTemplateById } from './templateStorage';
 
 /**
@@ -277,3 +278,87 @@ export const getChatResponseStream = async function* (
 		throw error;
 	}
 };
+
+export type ProcessFunctionCallsResult = {
+	newHtml?: string;
+	toolUsageMessage?: string;
+	reflection?: {
+		history: ChatMessage[];
+		toolResultMessage: string;
+	} | null;
+	errorMessage?: string;
+};
+
+export function processFunctionCalls(params: {
+	functionCalls: any[] | undefined;
+	documentHtml: string;
+	messages: ChatMessage[];
+	userMessage: string;
+	accumulatedText: string;
+}): ProcessFunctionCallsResult {
+	const { functionCalls, documentHtml, messages, userMessage, accumulatedText } =
+		params;
+
+	if (!functionCalls || functionCalls.length === 0) {
+		return { reflection: null };
+	}
+
+	const editCall = functionCalls.find((fc) => fc.name === 'edit_document');
+	if (!editCall || !editCall.args) {
+		return { reflection: null };
+	}
+
+	const { full_document_html, html_snippet_to_replace, replacement_html } =
+		editCall.args as Record<string, unknown>;
+
+	let newHtml = '';
+
+	if (typeof full_document_html === 'string' && full_document_html) {
+		newHtml = full_document_html;
+	} else if (
+		typeof html_snippet_to_replace === 'string' &&
+		html_snippet_to_replace &&
+		typeof replacement_html === 'string' &&
+		replacement_html
+	) {
+		// Try exact replacement first
+		newHtml =
+			tryReplaceExact(documentHtml, html_snippet_to_replace, replacement_html) ||
+			tryReplaceFuzzy(documentHtml, html_snippet_to_replace, replacement_html) ||
+			'';
+		if (!newHtml) {
+			return {
+				reflection: null,
+				errorMessage:
+					"I tried to make an edit, but couldn't find the exact text to change. Try highlighting it first or ask me to update the full document.",
+			};
+		}
+	} else {
+		return { reflection: null };
+	}
+
+	const toolUsageMessage = accumulatedText
+		? `${accumulatedText}\n\n**Tool used: edit_document**\n\n`
+		: '**Tool used: edit_document**\n\n';
+
+	const conversationHistory: ChatMessage[] = [
+		...messages,
+		{ role: 'user', content: userMessage },
+		{ role: 'model', content: accumulatedText || 'Executed edit_document tool' },
+	];
+
+	let changeDescription = '';
+	if (full_document_html) {
+		changeDescription = 'Full document was updated with new content.';
+	} else if (html_snippet_to_replace && replacement_html) {
+		changeDescription = 'Partial content replacement was made to the document.';
+	}
+
+	const toolResultMessage = `The edit_document tool was executed successfully. ${changeDescription}`;
+
+	return {
+		newHtml,
+		toolUsageMessage,
+		reflection: { history: conversationHistory, toolResultMessage },
+	};
+}

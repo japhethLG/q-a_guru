@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, ChatConfig } from '../types';
-import { getChatResponseStream, getReflectionStream } from '../services/gemini';
+import {
+	getChatResponseStream,
+	getReflectionStream,
+	processFunctionCalls,
+} from '../services/gemini';
 import { LoaderIcon, WandIcon, RefreshCwIcon } from './common/Icons';
 import { ContextDisplay } from './ContextDisplay';
 import { Button, Textarea, ChatMessageContent, Select } from './common';
@@ -117,202 +121,73 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			// Process the final response for function calls
 			if (!fullResponse) return;
 
-			const functionCalls = fullResponse.functionCalls;
-			if (functionCalls && functionCalls.length > 0) {
-				// Keep streaming indicator on - we'll make a reflection call
-				setIsStreamingText(true);
-				setIsLoading(true);
+			const result = processFunctionCalls({
+				functionCalls: (fullResponse as any).functionCalls,
+				documentHtml,
+				messages,
+				userMessage: messageToSend,
+				accumulatedText,
+			});
 
-				const editCall = functionCalls.find((fc) => fc.name === 'edit_document');
-				if (editCall && editCall.args) {
-					const { full_document_html, html_snippet_to_replace, replacement_html } =
-						editCall.args;
+			if (result.errorMessage) {
+				setMessages((prev) => [
+					...prev,
+					{ role: 'model', content: result.errorMessage as string },
+				]);
+				setIsLoading(false);
+				return;
+			}
 
-					let newHtml = '';
+			if (result.newHtml) {
+				// Execute the edit
+				onDocumentEdit(result.newHtml, messageToSend);
 
-					if (full_document_html) {
-						newHtml = full_document_html as string;
-					} else if (html_snippet_to_replace && replacement_html) {
-						const snippetToReplace = html_snippet_to_replace as string;
+				// Show tool usage and then stream reflection
+				try {
+					const toolUsageMessage =
+						result.toolUsageMessage || '**Tool used: edit_document**\n\n';
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = {
+							role: 'model',
+							content: toolUsageMessage,
+						};
+						return updated;
+					});
 
-						console.log(
-							'🔍 Looking for snippet:',
-							snippetToReplace.substring(0, 100)
+					if (result.reflection) {
+						const reflectionStream = getReflectionStream(
+							result.reflection.history,
+							result.reflection.toolResultMessage,
+							qaConfig.apiKey,
+							chatConfig.model,
+							abortControllerRef.current.signal
 						);
-						console.log('📄 Document length:', documentHtml.length);
 
-						// Try exact match first
-						if (documentHtml.includes(snippetToReplace)) {
-							newHtml = documentHtml.replace(
-								snippetToReplace,
-								replacement_html as string
-							);
-						} else {
-							console.warn(
-								'❌ Exact match not found, trying normalized comparison...'
-							);
-
-							// Try normalized comparison (strip whitespace and normalize case)
-							const normalizeHtml = (html: string) => {
-								const div = document.createElement('div');
-								div.innerHTML = html;
-								return div.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() || '';
-							};
-
-							const normalizedDoc = normalizeHtml(documentHtml);
-							const normalizedSnippet = normalizeHtml(snippetToReplace);
-
-							console.log(
-								'📝 Normalized snippet:',
-								normalizedSnippet.substring(0, 100)
-							);
-							console.log(
-								'📝 Normalized doc excerpt:',
-								normalizedDoc.substring(0, 200)
-							);
-
-							// Use fuzzy matching - find the starting position in normalized text
-							const startIndex = normalizedDoc.indexOf(
-								normalizedSnippet.substring(0, 50)
-							); // Match on first 50 chars
-
-							if (startIndex !== -1) {
-								console.log('✅ Fuzzy match found at position:', startIndex);
-								// Find the equivalent position in the original HTML
-								// This is tricky, so let's use a different approach: find by content
-								const originalContent = documentHtml.substring(
-									0,
-									Math.min(documentHtml.length, 5000)
-								);
-								const snippetContent = snippetToReplace;
-
-								// Try to find the snippet with relaxed matching
-								const relaxedMatch = originalContent.match(
-									new RegExp(
-										snippetContent.replace(/[<>]/g, '[<>]').replace(/\s+/g, '\\s*'),
-										'i'
-									)
-								);
-
-								if (relaxedMatch) {
-									newHtml = documentHtml.replace(
-										relaxedMatch[0],
-										replacement_html as string
-									);
-								} else {
-									// Last resort: ask AI to use full document HTML
-									console.log('⚠️ Could not find exact match in document');
-									setMessages((prev) => [
-										...prev,
-										{
+						let reflectionText = '';
+						for await (const chunk of await reflectionStream) {
+							if (chunk.text) {
+								reflectionText += chunk.text;
+								setMessages((prev) => {
+									const updated = [...prev];
+									if (updated.length > 0) {
+										updated[updated.length - 1] = {
 											role: 'model',
-											content:
-												"I couldn't find the exact text to replace. Please try selecting a larger portion of content or ask me to rewrite the entire section.",
-										},
-									]);
-									setIsLoading(false);
-									return;
-								}
-							} else {
-								console.error('❌ Fuzzy match failed');
-								console.warn("AI tried to replace a snippet that wasn't found.");
-								setMessages((prev) => [
-									...prev,
-									{
-										role: 'model',
-										content:
-											"I tried to make an edit, but couldn't find the exact text to change. Try highlighting it first.",
-									},
-								]);
-								setIsLoading(false);
-								return;
+											content: toolUsageMessage + reflectionText,
+										};
+									}
+									return updated;
+								});
 							}
 						}
+						setIsStreamingText(false);
 					}
-
-					if (newHtml) {
-						// Execute the edit
-						onDocumentEdit(newHtml, messageToSend);
-
-						// Show tool usage and get AI's explanation of changes
-						try {
-							// Add a message indicating tool was used, with a placeholder for AI's reflection
-							const toolUsageMessage = accumulatedText
-								? `${accumulatedText}\n\n**Tool used: edit_document**\n\n`
-								: '**Tool used: edit_document**\n\n';
-
-							setMessages((prev) => {
-								const updated = [...prev];
-								updated[updated.length - 1] = {
-									role: 'model',
-									content: toolUsageMessage,
-								};
-								return updated;
-							});
-
-							// Build conversation history
-							const conversationHistory: ChatMessage[] = [
-								...messages,
-								{ role: 'user', content: messageToSend },
-								{
-									role: 'model',
-									content: accumulatedText || 'Executed edit_document tool',
-								},
-							];
-
-							// Get what was changed for context
-							let changeDescription = '';
-							if (html_snippet_to_replace && replacement_html) {
-								changeDescription = `Partial content replacement was made to the document.`;
-							} else if (full_document_html) {
-								changeDescription = `Full document was updated with new content.`;
-							}
-
-							const toolResultMessage = `The edit_document tool was executed successfully. ${changeDescription}`;
-
-							// Get the reflection stream
-							const reflectionStream = getReflectionStream(
-								conversationHistory,
-								toolResultMessage,
-								qaConfig.apiKey,
-								chatConfig.model,
-								abortControllerRef.current.signal
-							);
-
-							// Stream the reflection
-							let reflectionText = '';
-							for await (const chunk of await reflectionStream) {
-								if (chunk.text) {
-									reflectionText += chunk.text;
-
-									// Append the reflection to the tool usage message
-									setMessages((prev) => {
-										const updated = [...prev];
-										if (updated.length > 0) {
-											updated[updated.length - 1] = {
-												role: 'model',
-												content: toolUsageMessage + reflectionText,
-											};
-										}
-										return updated;
-									});
-								}
-							}
-
-							// Turn off streaming indicator after reflection is complete
-							setIsStreamingText(false);
-						} catch (error) {
-							console.error('Reflection error:', error);
-							// Continue even if reflection fails
-							setIsStreamingText(false);
-						}
-					}
-				} else {
-					// No function calls, turn off streaming
+				} catch (error) {
+					console.error('Reflection error:', error);
 					setIsStreamingText(false);
 				}
 			} else {
-				// No function calls at all, turn off streaming
+				// No function calls, turn off streaming
 				setIsStreamingText(false);
 			}
 			// Streaming text has already been accumulated, so no need to add it again
@@ -363,14 +238,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				<div className="flex items-center justify-between">
 					<h3 className="text-lg font-semibold text-cyan-400">AI Assistant</h3>
 					{messages.length > 0 && (
-						<button
+						<Button
+							variant="icon"
 							onClick={handleResetChat}
-							className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-700 hover:text-cyan-400"
 							title="Clear chat history"
 							disabled={isLoading}
-						>
-							<RefreshCwIcon className="h-5 w-5" />
-						</button>
+							icon={<RefreshCwIcon className="h-5 w-5" />}
+						/>
 					)}
 				</div>
 				<Select
