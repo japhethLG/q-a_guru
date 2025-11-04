@@ -236,7 +236,14 @@ export const QAGenerator: React.FC = () => {
 	};
 
 	const handleExitPreview = () => {
+		if (versionHistory.length > 0) {
+			// Find the latest version (last item in array, since versions are chronological oldest-first)
+			const latestVersion = versionHistory[versionHistory.length - 1];
+			setEditorContent(latestVersion.content);
+			setCurrentVersionId(latestVersion.id);
+		}
 		setPreviewVersionId(null);
+		setIsEditorDirty(false);
 	};
 
 	const contentToDisplay = previewVersionId

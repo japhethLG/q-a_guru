@@ -181,7 +181,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 						value={qaConfig.count}
 						onChange={(value) => setQaConfig((c) => ({ ...c, count: value }))}
 						min={1}
-						max={100}
+						max={500}
 						step={1}
 						showInput={true}
 					/>
