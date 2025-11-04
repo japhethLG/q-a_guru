@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { DownloadFormat, DocumentVersion } from '../types';
+import { DownloadFormat, DocumentVersion, SelectionMetadata } from '../types';
 import { SaveIcon, XIcon } from './common/Icons';
 import {
 	Button,
@@ -15,7 +15,7 @@ import { htmlToDocx } from '../services/docxExport';
 interface EditorSectionProps {
 	content: string;
 	onContentChange: (newContent: string) => void;
-	onTextSelect: (selectedText: string) => void;
+	onTextSelect: (selectedText: SelectionMetadata | null) => void;
 	onDirtyChange: (isDirty: boolean) => void;
 	isPreviewing: boolean;
 	onExitPreview: () => void;
@@ -60,7 +60,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	};
 
 	// Handle selection change
-	const handleSelectionChange = (selection: string) => {
+	const handleSelectionChange = (selection: SelectionMetadata | null) => {
 		onTextSelect(selection);
 	};
 

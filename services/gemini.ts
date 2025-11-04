@@ -4,7 +4,7 @@ import {
 	Type,
 	GenerateContentResponse,
 } from '@google/genai';
-import { QaConfig, ChatConfig, ChatMessage } from '../types';
+import { QaConfig, ChatConfig, ChatMessage, SelectionMetadata } from '../types';
 import { prompts, toolDeclarations } from './prompts';
 import { tryReplaceExact, tryReplaceFuzzy } from './htmlReplace';
 import { getTemplateById } from './templateStorage';
@@ -204,7 +204,7 @@ export const getChatResponseStream = async function* (
 	newMessage: string,
 	sourceDocuments: string[],
 	documentHtml?: string,
-	selectedText?: string,
+	selectedText?: SelectionMetadata | null,
 	apiKey?: string,
 	model:
 		| 'gemini-2.5-pro'
@@ -242,7 +242,10 @@ export const getChatResponseStream = async function* (
 			parts: [{ text: message.content }],
 		}));
 
-	const userPrompt = prompts.getUserPrompt(newMessage, selectedText);
+	const userPrompt = prompts.getUserPrompt(
+		newMessage,
+		selectedText || undefined
+	);
 
 	const contents = [
 		...geminiHistory,
@@ -318,9 +321,9 @@ export function processFunctionCalls(params: {
 	} else if (
 		typeof html_snippet_to_replace === 'string' &&
 		html_snippet_to_replace &&
-		typeof replacement_html === 'string' &&
-		replacement_html
+		typeof replacement_html === 'string'
 	) {
+		// Allow empty string for deletion - replacement_html can be '' to delete content
 		// Try exact replacement first
 		newHtml =
 			tryReplaceExact(documentHtml, html_snippet_to_replace, replacement_html) ||
@@ -350,8 +353,12 @@ export function processFunctionCalls(params: {
 	let changeDescription = '';
 	if (full_document_html) {
 		changeDescription = 'Full document was updated with new content.';
-	} else if (html_snippet_to_replace && replacement_html) {
-		changeDescription = 'Partial content replacement was made to the document.';
+	} else if (html_snippet_to_replace && typeof replacement_html === 'string') {
+		if (replacement_html === '') {
+			changeDescription = 'Content was deleted from the document.';
+		} else {
+			changeDescription = 'Partial content replacement was made to the document.';
+		}
 	}
 
 	const toolResultMessage = `The edit_document tool was executed successfully. ${changeDescription}`;

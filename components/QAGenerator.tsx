@@ -56,10 +56,10 @@ export const QAGenerator: React.FC = () => {
 		// Only validate when editor content changes, not when text is first selected
 		if (selectedText && editorContent) {
 			const editorPlainText = normalizeText(convertToPlainText(editorContent));
-			const selectedPlainText = normalizeText(convertToPlainText(selectedText));
+			const selectedPlainText = normalizeText(convertToPlainText(selectedText.selectedText || selectedText.selectedHtml));
 
 			if (!editorPlainText.includes(selectedPlainText)) {
-				setSelectedText('');
+				setSelectedText(null);
 			}
 		}
 	}, [editorContent]); // Only depend on editorContent, not selectedText

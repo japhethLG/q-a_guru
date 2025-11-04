@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, ChatConfig } from '../types';
+import { ChatMessage, ChatConfig, SelectionMetadata } from '../types';
 import {
 	getChatResponseStream,
 	getReflectionStream,
@@ -12,7 +12,7 @@ import { useAppContext } from '../contexts/AppContext';
 
 interface ChatSectionProps {
 	documentHtml: string;
-	selectedText: string;
+	selectedText: SelectionMetadata | null;
 	onDocumentEdit: (newHtml: string, reason: string) => void;
 }
 
@@ -33,17 +33,12 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	const [input, setInput] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [isStreamingText, setIsStreamingText] = useState(false);
-	const [contextText, setContextText] = useState('');
 	const [chatConfig, setChatConfig] = useState<ChatConfig>({
 		model: 'gemini-2.5-pro',
 	});
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-	useEffect(() => {
-		setContextText(selectedText);
-	}, [selectedText]);
 
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +74,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				messageToSend,
 				documentsContent,
 				documentHtml,
-				contextText,
+				selectedText,
 				qaConfig.apiKey,
 				chatConfig.model,
 				generationConfig || qaConfig, // Use generation config if available, otherwise use current config
@@ -229,7 +224,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 	const handleResetChat = () => {
 		setMessages([]);
 		setInput('');
-		setContextText('');
 	};
 
 	return (
@@ -315,11 +309,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			</div>
 
 			<div className="border-t border-gray-700 bg-gray-800/80 p-3 backdrop-blur-sm">
-				<ContextDisplay
-					contextText={contextText}
-					onClear={() => setContextText('')}
-				/>
-				{contextText && (
+				<ContextDisplay selectedText={selectedText} onClear={() => {}} />
+				{selectedText && (
 					<div className="mb-2 grid grid-cols-3 gap-2">
 						{actionButtons.map((btn) => (
 							<Button
@@ -345,7 +336,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 								handleSendMessage();
 							}
 						}}
-						placeholder={contextText ? 'Ask about selection...' : 'Ask a question...'}
+						placeholder={
+							selectedText ? 'Ask about selection...' : 'Ask a question...'
+						}
 						disabled={isLoading}
 						rows={1}
 						size="md"

@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEInstance } from 'tinymce';
+import { SelectionMetadata } from '../../types';
 
 interface TinyMCEEditorProps {
 	value: string;
 	onChange?: (content: string) => void;
-	onSelectionChange?: (selection: string) => void;
+	onSelectionChange?: (selection: SelectionMetadata | null) => void;
 	disabled?: boolean;
 	onInit?: (editor: TinyMCEInstance) => void;
 	height?: string | number;
@@ -65,15 +66,99 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 		const editor = editorRef.current;
 		if (!editor || !onSelectionChange) return;
 
-		const selection = editor.selection.getContent({ format: 'html' });
-		if (selection) {
-			onSelectionChange(selection);
-		} else {
+		try {
+			const selectedHtml = editor.selection.getContent({ format: 'html' });
 			const selectedText = editor.selection.getContent({ format: 'text' });
-			if (selectedText.trim()) {
-				onSelectionChange(selectedText);
+
+			// If no selection, pass null
+			if (!selectedText || !selectedText.trim()) {
+				onSelectionChange(null);
+				return;
+			}
+
+			// Get the full document content as plain text for line number calculation
+			const fullContent = editor.getContent({ format: 'text' });
+			
+			// Get selection range
+			const range = editor.selection.getRng();
+			if (!range) {
+				onSelectionChange(null);
+				return;
+			}
+
+			// Calculate start and end offsets in plain text
+			// For HTML content, we need to approximate the position
+			// We'll use the selected text position in the full content
+			const selectedTextNormalized = selectedText.trim();
+			const startIndex = fullContent.indexOf(selectedTextNormalized);
+			
+			// If we can't find exact match, try to find approximate position
+			let startOffset = startIndex;
+			let endOffset = startIndex + selectedTextNormalized.length;
+
+			if (startIndex === -1) {
+				// Fallback: count characters before selection using range
+				// Get content before selection from the editor
+				const body = editor.getBody();
+				const rangeClone = range.cloneRange();
+				rangeClone.setStart(body, 0);
+				rangeClone.setEnd(range.startContainer, range.startOffset);
+				const beforeContent = rangeClone.toString();
+				startOffset = beforeContent.length;
+				endOffset = startOffset + selectedTextNormalized.length;
+			}
+
+			// Calculate line numbers
+			const textBeforeStart = fullContent.substring(0, startOffset);
+			const startLine = textBeforeStart.split('\n').length;
+			const selectedLines = selectedTextNormalized.split('\n');
+			const endLine = startLine + selectedLines.length - 1;
+
+			// Get surrounding context (100 chars before and after)
+			const contextBefore = fullContent.substring(
+				Math.max(0, startOffset - 100),
+				startOffset
+			);
+			const contextAfter = fullContent.substring(
+				endOffset,
+				Math.min(fullContent.length, endOffset + 100)
+			);
+
+			const metadata: SelectionMetadata = {
+				selectedText: selectedTextNormalized,
+				selectedHtml: selectedHtml || selectedTextNormalized,
+				startLine,
+				endLine,
+				startOffset,
+				endOffset,
+				contextBefore: contextBefore || undefined,
+				contextAfter: contextAfter || undefined,
+			};
+
+			onSelectionChange(metadata);
+		} catch (error) {
+			console.error('Error capturing selection metadata:', error);
+			// Fallback to simple text selection
+			const selectedText = editor.selection.getContent({ format: 'text' });
+			if (selectedText && selectedText.trim()) {
+				const selectedHtml = editor.selection.getContent({ format: 'html' });
+				const fullContent = editor.getContent({ format: 'text' });
+				const startIndex = fullContent.indexOf(selectedText.trim());
+				const startLine = startIndex >= 0 
+					? fullContent.substring(0, startIndex).split('\n').length 
+					: 1;
+				
+				const metadata: SelectionMetadata = {
+					selectedText: selectedText.trim(),
+					selectedHtml: selectedHtml || selectedText.trim(),
+					startLine,
+					endLine: startLine,
+					startOffset: startIndex >= 0 ? startIndex : 0,
+					endOffset: startIndex >= 0 ? startIndex + selectedText.trim().length : 0,
+				};
+				onSelectionChange(metadata);
 			} else {
-				onSelectionChange('');
+				onSelectionChange(null);
 			}
 		}
 	}, [onSelectionChange]);

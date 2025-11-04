@@ -5,7 +5,7 @@ import React, {
 	useEffect,
 	ReactNode,
 } from 'react';
-import { QaConfig, DocumentVersion } from '../types';
+import { QaConfig, DocumentVersion, SelectionMetadata } from '../types';
 import { getActiveTemplate } from '../services/templateStorage';
 
 interface AppContextType {
@@ -24,8 +24,8 @@ interface AppContextType {
 	// Editor state
 	editorContent: string;
 	setEditorContent: React.Dispatch<React.SetStateAction<string>>;
-	selectedText: string;
-	setSelectedText: React.Dispatch<React.SetStateAction<string>>;
+	selectedText: SelectionMetadata | null;
+	setSelectedText: React.Dispatch<React.SetStateAction<SelectionMetadata | null>>;
 	isEditorDirty: boolean;
 	setIsEditorDirty: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -83,7 +83,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 
 	// Editor state
 	const [editorContent, setEditorContent] = useState<string>('');
-	const [selectedText, setSelectedText] = useState('');
+	const [selectedText, setSelectedText] = useState<SelectionMetadata | null>(null);
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
 
 	// Version history state

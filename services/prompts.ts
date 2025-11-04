@@ -211,9 +211,12 @@ Use single backticks for inline code: \`code here\`
 Editing Instructions:
 - When the user asks you to modify the document, you MUST use the edit_document tool.
 - IMPORTANT: The user may have selected text to edit. If selected context is provided, focus your edits on that specific content.
-- For large selections or multi-paragraph edits, use 'full_document_html' with the complete new HTML for the entire document.
-- For small, targeted changes to unselected text, use 'html_snippet_to_replace' and 'replacement_html' parameters. Copy the EXACT HTML from the document including all tags, whitespace, and structure.
-- If you cannot find the exact HTML match, fall back to using 'full_document_html' instead of failing.
+- You have access to TWO editing methods - choose the most appropriate based on the edit scope:
+  1. **'html_snippet_to_replace' + 'replacement_html'**: Use for small, targeted edits. Copy the EXACT HTML snippet from the document including all tags, whitespace, and structure. Best for: single word/phrase changes, small formatting updates, localized edits.
+  2. **'full_document_html'**: Use for large changes, structural modifications, or when you can't find the exact HTML snippet. Best for: multi-paragraph edits, major restructuring, formatting changes.
+- When selected text is provided, you can use EITHER method - choose based on the scope of your edit, not just because selection exists.
+- If you cannot find the exact HTML match when using 'html_snippet_to_replace', fall back to using 'full_document_html' instead of failing.
+- **Deleting Content**: To delete content, use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string (''). For deleting large sections, use 'full_document_html' with the complete document excluding the content to remove.
 - **Empty Document Handling**: If the document is empty (no content exists yet), you CAN and SHOULD create new content by using 'full_document_html' with the complete new HTML. Do not refuse to edit an empty document - treat it as creating new content from scratch.
 
 ## Agentic Behavior (CRITICAL):
@@ -309,30 +312,84 @@ The document in the editor is currently empty. When the user asks you to create 
 	/**
 	 * Appends selected text context to the system instruction
 	 */
-	appendSelectedText: (instruction: string, selectedText: string) => {
+	appendSelectedText: (
+		instruction: string,
+		selectedText: {
+			selectedText: string;
+			selectedHtml: string;
+			startLine: number;
+			endLine: number;
+			contextBefore?: string;
+			contextAfter?: string;
+		}
+	) => {
+		const lineInfo =
+			selectedText.startLine === selectedText.endLine
+				? `Line ${selectedText.startLine}`
+				: `Lines ${selectedText.startLine}-${selectedText.endLine}`;
+
+		let contextInfo = '';
+		if (selectedText.contextBefore || selectedText.contextAfter) {
+			contextInfo = '\n\nContext around selection:';
+			if (selectedText.contextBefore) {
+				contextInfo += `\n--- Text before selection (for reference) ---\n${selectedText.contextBefore}`;
+			}
+			if (selectedText.contextAfter) {
+				contextInfo += `\n--- Text after selection (for reference) ---\n${selectedText.contextAfter}`;
+			}
+		}
+
 		return (
 			instruction +
 			`\n\n## USER SELECTION (IMPORTANT):
-The user has HIGHLIGHTED the following content. Since you have the selected context, you MUST use 'full_document_html' to provide the complete updated document. Do NOT use 'html_snippet_to_replace' - it often fails with highlighted content.
+The user has HIGHLIGHTED the following content at ${lineInfo}. You have access to both editing methods:
 
 Selected content to edit:
-"""${selectedText}"""
+"""${selectedText.selectedHtml || selectedText.selectedText}"""${contextInfo}
 
-When using edit_document tool:
-- ALWAYS use 'full_document_html' with the complete updated document HTML
-- Do NOT use 'html_snippet_to_replace' when selectedText is provided
-- Make sure your 'full_document_html' includes the updated version of the selected content above`
+When using edit_document tool, choose the most appropriate method:
+
+1. **Use 'html_snippet_to_replace' + 'replacement_html'** when:
+   - Making small, targeted edits within the selection
+   - The edit is localized to the selected content
+   - You can find the exact HTML snippet in the document
+   - The structure remains similar (same HTML tags)
+
+2. **Use 'full_document_html'** when:
+   - Making large structural changes
+   - The edit significantly changes formatting/structure
+   - You need to modify content outside the selection
+   - The HTML structure changes significantly
+
+**Guidelines:**
+- For small edits (single word, phrase, sentence): Prefer 'html_snippet_to_replace'
+- For larger edits (paragraph restructuring, multiple paragraphs): Prefer 'full_document_html'
+- To delete content: Use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string ('')
+- Always ensure the selected content is included in your edit (unless deleting it)
+- Use the line numbers and context to locate the exact position in the document`
 		);
 	},
 
 	/**
 	 * Creates the user prompt with optional selected text
 	 */
-	getUserPrompt: (message: string, selectedText?: string) => {
+	getUserPrompt: (
+		message: string,
+		selectedText?: {
+			selectedText: string;
+			selectedHtml: string;
+			startLine: number;
+			endLine: number;
+		} | null
+	) => {
 		if (selectedText) {
+			const lineInfo =
+				selectedText.startLine === selectedText.endLine
+					? `Line ${selectedText.startLine}`
+					: `Lines ${selectedText.startLine}-${selectedText.endLine}`;
 			return (
 				message +
-				`\n\nApply this command to the following selected HTML snippet:\n"""\n${selectedText}\n"""`
+				`\n\nApply this command to the following selected content at ${lineInfo}:\n"""\n${selectedText.selectedHtml || selectedText.selectedText}\n"""`
 			);
 		}
 		return message;
@@ -367,7 +424,7 @@ export const toolDeclarations = {
 				replacement_html: {
 					type: 'string' as const,
 					description:
-						'The new HTML snippet that will replace the `html_snippet_to_replace`. Must match the exact same HTML structure. Must be provided if `html_snippet_to_replace` is used.',
+						"The new HTML snippet that will replace the `html_snippet_to_replace`. Use an empty string ('') to delete/remove the selected content. Must match the exact same HTML structure when replacing (not deleting). Must be provided if `html_snippet_to_replace` is used.",
 				},
 			},
 		},

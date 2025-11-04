@@ -50,3 +50,14 @@ export interface DocumentVersion {
 	content: string;
 	reason: string;
 }
+
+export interface SelectionMetadata {
+	selectedText: string;
+	selectedHtml: string;
+	startLine: number;
+	endLine: number;
+	startOffset: number;
+	endOffset: number;
+	contextBefore?: string; // 100 chars before selection
+	contextAfter?: string; // 100 chars after selection
+}
