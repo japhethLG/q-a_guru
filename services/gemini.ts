@@ -36,7 +36,6 @@ export const generateQaStream = async function* (
 		...(selectedTemplate && {
 			template: {
 				templateString: selectedTemplate.templateString,
-				answerFormat: config.answerFormat || selectedTemplate.answerFormat,
 			},
 		}),
 	};

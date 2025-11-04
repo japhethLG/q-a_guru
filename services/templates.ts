@@ -1,4 +1,4 @@
-import { QuestionTemplate, QuestionType, AnswerFormat } from '../types';
+import { QuestionTemplate, QuestionType } from '../types';
 
 /**
  * Default templates for each question type
@@ -18,7 +18,6 @@ export const defaultTemplates: QuestionTemplate[] = [
 </ul>
 <p><i>Reference: [reference]</i></p>
 <br>`,
-		answerFormat: 'bold',
 		isDefault: true,
 	},
 	{
@@ -30,7 +29,6 @@ export const defaultTemplates: QuestionTemplate[] = [
 <p><strong>Answer: [answer]</strong></p>
 <p><i>Reference: [reference]</i></p>
 <br>`,
-		answerFormat: 'bold',
 		isDefault: true,
 	},
 	{
@@ -42,7 +40,6 @@ export const defaultTemplates: QuestionTemplate[] = [
 <p><strong>[answer]</strong></p>
 <p><i>Reference: [reference]</i></p>
 <br>`,
-		answerFormat: 'bold',
 		isDefault: true,
 	},
 	{
@@ -54,7 +51,6 @@ export const defaultTemplates: QuestionTemplate[] = [
 <p><strong>[answer]</strong></p>
 <p><i>Reference: [reference]</i></p>
 <br>`,
-		answerFormat: 'bold',
 		isDefault: true,
 	},
 	{
@@ -66,7 +62,6 @@ export const defaultTemplates: QuestionTemplate[] = [
 <p><strong>[answer]</strong></p>
 <p><i>Reference: [reference]</i></p>
 <br>`,
-		answerFormat: 'bold',
 		isDefault: true,
 	},
 ];
@@ -227,26 +222,4 @@ export const previewTemplate = (
 	}
 
 	return preview;
-};
-
-/**
- * Generate instructions for the AI on how to format answers
- */
-export const formatAnswerInstructions = (
-	answerFormat: AnswerFormat,
-	templateString: string
-): string => {
-	const answerVariable =
-		templateString.match(/\[answer\]|\[correct_answer\]/)?.[0] || '[answer]';
-
-	switch (answerFormat) {
-		case 'bold':
-			return `Format the answer using the ${answerVariable} variable wrapped in <strong> tags for emphasis. Example: <strong>${answerVariable}</strong>`;
-		case 'highlight':
-			return `Format the answer using the ${answerVariable} variable wrapped in <mark> tags for highlighting. Example: <mark>${answerVariable}</mark>`;
-		case 'box':
-			return `Format the answer using the ${answerVariable} variable wrapped in a bordered div for emphasis. Example: <div style="border: 2px solid #06b6d4; padding: 8px; border-radius: 4px; margin: 8px 0;">${answerVariable}</div>`;
-		default:
-			return '';
-	}
 };

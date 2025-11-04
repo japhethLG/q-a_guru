@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { QuestionTemplate, QuestionType } from '../types';
-import { getTemplates, deleteTemplate } from '../services/templateStorage';
-import { Button } from './common';
+import {
+	getTemplates,
+	deleteTemplate,
+	getTemplateById,
+} from '../services/templateStorage';
+import { Button, ContentPreview } from './common';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from './common/Icons';
 
 interface TemplateManagerProps {
@@ -69,12 +73,16 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 						variant="primary"
 						size="sm"
 						onClick={() => {
+							// Use selected template's type if available, otherwise use currentType
+							const selectedTemplate = selectedTemplateId
+								? getTemplateById(selectedTemplateId)
+								: null;
+							const typeToUse = selectedTemplate?.questionType || currentType;
 							const newTemplate: QuestionTemplate = {
 								id: '',
 								name: '',
-								questionType: currentType,
+								questionType: typeToUse,
 								templateString: '',
-								answerFormat: 'bold',
 							};
 							handleEdit(newTemplate);
 						}}
@@ -98,25 +106,34 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 									{templates.map((template) => (
 										<div
 											key={template.id}
-											className="flex items-center justify-between p-4 transition-colors hover:bg-gray-800"
+											className="flex items-center gap-4 p-4 transition-colors hover:bg-gray-800"
 										>
-											<div className="flex items-center gap-3">
+											{/* Left: Template Info */}
+											<div className="flex flex-1 items-center gap-3">
 												{selectedTemplateId === template.id && (
-													<CheckIcon className="h-5 w-5 text-cyan-500" />
+													<CheckIcon className="h-5 w-5 shrink-0 text-cyan-500" />
 												)}
-												<div>
+												<div className="min-w-0 flex-1">
 													<div className="font-medium text-white">
 														{template.name}
 														{template.isDefault && (
 															<span className="ml-2 text-xs text-gray-400">(Default)</span>
 														)}
 													</div>
-													<div className="max-w-md truncate font-mono text-xs text-gray-400">
-														{template.templateString.split('\n')[0]}...
-													</div>
 												</div>
 											</div>
-											<div className="flex items-center gap-2">
+											{/* Right: Preview */}
+											<div className="w-1/2 shrink-0">
+												<ContentPreview
+													content={template.templateString}
+													contentType="template"
+													questionType={template.questionType}
+													height={150}
+													maxHeight={150}
+												/>
+											</div>
+											{/* Actions */}
+											<div className="flex shrink-0 items-center gap-2">
 												{selectedTemplateId !== template.id && (
 													<Button
 														variant="secondary"

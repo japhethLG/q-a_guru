@@ -1,5 +1,3 @@
-export type AnswerFormat = 'bold' | 'highlight' | 'box';
-
 export type QuestionType =
 	| 'mixed'
 	| 'multiple choice'
@@ -12,7 +10,6 @@ export interface QuestionTemplate {
 	name: string;
 	questionType: QuestionType;
 	templateString: string;
-	answerFormat: AnswerFormat;
 	isDefault?: boolean;
 }
 
@@ -24,7 +21,6 @@ export interface QaConfig {
 	apiKey?: string;
 	model: 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
 	selectedTemplateId?: string;
-	answerFormat?: AnswerFormat;
 }
 
 export interface ChatConfig {

@@ -6,7 +6,7 @@ import React, {
 	useRef,
 } from 'react';
 import type { Editor as TinyMCEInstance } from 'tinymce';
-import { QuestionTemplate, QuestionType, AnswerFormat } from '../types';
+import { QuestionTemplate, QuestionType } from '../types';
 import { getAvailableVariables, validateTemplate } from '../services/templates';
 import { Button, Select, Input, TinyMCEEditor } from './common';
 import { EditIcon, ChevronDownIcon, ChevronUpIcon } from './common/Icons';
@@ -30,9 +30,6 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 	);
 	const [templateString, setTemplateString] = useState(
 		template?.templateString || ''
-	);
-	const [answerFormat, setAnswerFormat] = useState<AnswerFormat>(
-		template?.answerFormat || 'bold'
 	);
 	const [errors, setErrors] = useState<string[]>([]);
 	const [expandedSection, setExpandedSection] = useState<'variables' | null>(
@@ -90,9 +87,8 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 			name: name.trim(),
 			questionType: selectedType,
 			templateString: templateString.trim(),
-			answerFormat,
 		});
-	}, [name, selectedType, templateString, answerFormat, onSave]);
+	}, [name, selectedType, templateString, onSave]);
 
 	const handleNameChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,10 +109,6 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 	const handleTemplateChange = useCallback((content: string) => {
 		setTemplateString(content);
 		setErrors([]);
-	}, []);
-
-	const handleAnswerFormatChange = useCallback((format: AnswerFormat) => {
-		setAnswerFormat(format);
 	}, []);
 
 	// Expose handleSave to parent via callback ref
@@ -205,23 +197,6 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 										))}
 									</div>
 								)}
-							</div>
-							{/* Answer Format Selector */}
-							<div className="mt-4">
-								<label className="mb-2 block text-sm font-semibold text-white">
-									Answer Format
-								</label>
-								<div className="flex gap-2">
-									{(['bold', 'highlight', 'box'] as AnswerFormat[]).map((format) => (
-										<Button
-											key={format}
-											onClick={() => handleAnswerFormatChange(format)}
-											variant={answerFormat === format ? 'primary' : 'secondary'}
-										>
-											{format.charAt(0).toUpperCase() + format.slice(1)}
-										</Button>
-									))}
-								</div>
 							</div>
 						</div>
 					</div>

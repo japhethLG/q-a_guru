@@ -17,7 +17,6 @@ export const prompts = {
 			instructions?: string;
 			template?: {
 				templateString: string;
-				answerFormat: string;
 			};
 		}
 	) => {
@@ -25,21 +24,6 @@ export const prompts = {
 
 		// If template is provided, use it
 		if (config.template) {
-			// Get the answer format instruction
-			let answerFormatInstruction = '';
-			switch (config.template.answerFormat) {
-				case 'bold':
-					answerFormatInstruction = 'Use <strong> tags around the answer.';
-					break;
-				case 'highlight':
-					answerFormatInstruction = 'Use <mark> tags around the answer.';
-					break;
-				case 'box':
-					answerFormatInstruction =
-						'Wrap the answer in: <div style="border: 2px solid #06b6d4; padding: 8px; border-radius: 4px; margin: 8px 0;">answer</div>';
-					break;
-			}
-
 			return `Generate ${config.count} ${config.type} questions from the provided documents.
 
 CRITICAL: Output ONLY HTML. No markdown, no explanations.
@@ -61,7 +45,9 @@ Configuration:
 - Difficulty: ${config.difficulty}
 ${config.instructions ? `- Additional Instructions: ${config.instructions}` : ''}
 
-Follow this EXACT HTML template format (preserve all line breaks):
+⚠️ CRITICAL: You MUST follow this EXACT HTML template format precisely. The template defines ALL formatting, including how answers are displayed. Preserve ALL HTML tags, line breaks, spacing, and structure exactly as shown in the template.
+
+Template to follow EXACTLY (preserve all line breaks and spacing):
 
 \`\`\`
 ${config.template.templateString}
@@ -81,15 +67,14 @@ VARIABLE REPLACEMENT RULES:
 - [keywords] → Key terms
 - [rubric] → Grading expectations
 
-ANSWER FORMATTING: ${answerFormatInstruction}
-
 OUTPUT REQUIREMENTS:
-1. Output HTML only (use <p> tags for text)
+1. Output HTML only - follow the template structure EXACTLY
 2. DO NOT wrap output in markdown code blocks (\`\`\`html ... \`\`\`)
-3. Output raw HTML directly - start with <p> or other HTML tags immediately
+3. Output raw HTML directly - start with the first tag from the template
 4. Preserve EXACT line breaks and spacing from template
-5. Include all HTML tags shown (<b>, <i>, <strong>, etc.)
-6. Generate ${config.count} complete questions in this format
+5. Include ALL HTML tags shown in template (<b>, <i>, <strong>, <ul>, <li>, etc.) exactly as they appear
+6. The template defines all formatting - do NOT modify or add formatting beyond what's in the template
+7. Generate ${config.count} complete questions in this format
 
 --- SOURCE DOCUMENTS ---
 ${combinedDocuments}
@@ -146,7 +131,6 @@ Remember: This is a continuation, not a new conversation. Do NOT repeat what you
 			difficulty: string;
 			instructions: string;
 			selectedTemplateId?: string;
-			answerFormat?: string;
 			count: number;
 		} | null
 	) => {
@@ -286,8 +270,7 @@ ${qaConfig.instructions ? `- Additional Instructions: ${qaConfig.instructions}` 
 			if (selectedTemplate) {
 				instruction += `
 - Template: ${selectedTemplate.name} (${qaConfig.selectedTemplateId})
-- Answer Format: ${qaConfig.answerFormat || selectedTemplate.answerFormat}
-- Template Structure: The document follows this HTML template format:
+- Template Structure: The document follows this EXACT HTML template format. All formatting, including answer formatting, is defined in the template:
 \`\`\`
 ${selectedTemplate.templateString}
 \`\`\`
@@ -298,7 +281,9 @@ Variables used in this template:
 - [answer] - Correct answer
 - [reference] - Source citation
 ${selectedTemplate.questionType === 'multiple choice' ? '- [choice1-4] - Answer choices\n- [letter] - Answer letter' : ''}
-${selectedTemplate.questionType === 'true/false' ? '- [correct_answer] - True or False' : ''}`;
+${selectedTemplate.questionType === 'true/false' ? '- [correct_answer] - True or False' : ''}
+
+⚠️ IMPORTANT: When editing or creating content for this document, you MUST follow the template structure exactly. The template defines all formatting including how answers are displayed. Do not modify the HTML structure from the template.`;
 			}
 
 			instruction += `

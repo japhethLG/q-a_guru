@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { QuestionTemplate, QaConfig } from '../types';
-import { LoaderIcon, SparklesIcon, SettingsIcon } from './common/Icons';
+import { QuestionTemplate, QaConfig, QuestionType } from '../types';
+import {
+	LoaderIcon,
+	SparklesIcon,
+	SettingsIcon,
+	ChevronDownIcon,
+} from './common/Icons';
 import {
 	Button,
 	CollapsibleSection,
@@ -9,6 +14,7 @@ import {
 	Textarea,
 	NumberInput,
 	Modal,
+	ContentPreview,
 } from './common';
 import { TemplateManager } from './TemplateManager';
 import { TemplateEditor } from './TemplateEditor';
@@ -49,7 +55,6 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 				...c,
 				selectedTemplateId: templateId,
 				type: selectedTemplate.questionType,
-				answerFormat: selectedTemplate.answerFormat,
 			}));
 		}
 	};
@@ -58,7 +63,10 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 		template: QuestionTemplate | null,
 		currentType: string
 	) => {
-		setEditingTemplate({ template, currentType });
+		// Use selected template's type if available, otherwise use currentType
+		const typeToUse =
+			selectedTemplate?.questionType || (currentType as QuestionType);
+		setEditingTemplate({ template, currentType: typeToUse });
 		setIsEditingTemplate(true);
 		setIsTemplateModalOpen(false); // Close the manager modal
 	};
@@ -73,6 +81,9 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	const selectedTemplate = qaConfig.selectedTemplateId
 		? getTemplateById(qaConfig.selectedTemplateId)
 		: null;
+
+	// Template preview state
+	const [isPreviewExpanded, setIsPreviewExpanded] = useState(true);
 
 	return (
 		<CollapsibleSection
@@ -104,25 +115,13 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 							}))
 						}
 					/>
-					<Select
-						label="Question Type"
-						options={[
-							{ value: 'mixed', label: 'Mixed' },
-							{ value: 'multiple choice', label: 'Multiple Choice' },
-							{ value: 'true/false', label: 'True/False' },
-							{ value: 'short answer', label: 'Short Answer' },
-							{ value: 'essay', label: 'Essay' },
-						]}
-						value={qaConfig.type}
-						onChange={(e) =>
-							setQaConfig((c) => ({ ...c, type: e.target.value as QaConfig['type'] }))
-						}
-					/>
 
 					{/* Template Management */}
-					<div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
-						<div className="mb-2 flex items-center justify-between">
-							<label className="text-sm font-medium">Output Template</label>
+					<div>
+						<div className="mb-1 flex items-center justify-between">
+							<label className="block text-sm font-medium text-gray-300">
+								Q&A Template
+							</label>
 							<Button
 								variant="icon"
 								size="sm"
@@ -131,35 +130,51 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 								<SettingsIcon className="h-4 w-4" />
 							</Button>
 						</div>
-						{selectedTemplate ? (
-							<div className="text-sm text-gray-300">
-								<div className="font-medium">{selectedTemplate.name}</div>
-								<div className="mt-1 text-xs text-gray-500">
-									Format: {selectedTemplate.answerFormat}
-								</div>
+						<div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800/50 transition-all duration-300">
+							<div className="p-3">
+								{selectedTemplate ? (
+									<div className="text-sm text-gray-300">
+										<div>
+											<span className="text-gray-400">Template: </span>
+											<span className="font-medium">{selectedTemplate.name}</span>
+										</div>
+										<div className="mt-1">
+											<span className="text-xs text-gray-400">Q&A Type: </span>
+											<span className="font-medium capitalize">
+												{selectedTemplate.questionType}
+											</span>
+										</div>
+									</div>
+								) : (
+									<div className="text-sm text-gray-500">Using default template</div>
+								)}
 							</div>
-						) : (
-							<div className="text-sm text-gray-500">Using default template</div>
-						)}
+							{selectedTemplate && (
+								<>
+									<div
+										className="flex cursor-pointer items-center justify-between border-t border-gray-700 px-3 py-2 transition-colors hover:bg-gray-800/70"
+										onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+									>
+										<span className="text-xs font-semibold text-gray-400">Preview</span>
+										<ChevronDownIcon
+											className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isPreviewExpanded ? 'rotate-180' : ''}`}
+										/>
+									</div>
+									{isPreviewExpanded && (
+										<div className="border-t border-gray-700 p-3">
+											<ContentPreview
+												content={selectedTemplate.templateString}
+												contentType="template"
+												questionType={selectedTemplate.questionType}
+												height={150}
+												maxHeight={150}
+											/>
+										</div>
+									)}
+								</>
+							)}
+						</div>
 					</div>
-
-					{selectedTemplate && (
-						<Select
-							label="Answer Format"
-							options={[
-								{ value: 'bold', label: 'Bold' },
-								{ value: 'highlight', label: 'Highlight' },
-								{ value: 'box', label: 'Box' },
-							]}
-							value={qaConfig.answerFormat || 'bold'}
-							onChange={(e) =>
-								setQaConfig((c) => ({
-									...c,
-									answerFormat: e.target.value as QaConfig['answerFormat'],
-								}))
-							}
-						/>
-					)}
 
 					<NumberInput
 						label="Number of Questions"
@@ -225,7 +240,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 				size="xl"
 			>
 				<TemplateManager
-					currentType={qaConfig.type}
+					currentType={selectedTemplate?.questionType || qaConfig.type}
 					onSelectTemplate={handleSelectTemplate}
 					selectedTemplateId={qaConfig.selectedTemplateId}
 					onClose={() => setIsTemplateModalOpen(false)}

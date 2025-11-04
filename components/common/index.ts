@@ -14,3 +14,4 @@ export { FilesDropdown } from './FilesDropdown';
 export { ChatMessageContent } from './ChatMessageContent';
 export { Modal } from './Modal';
 export { TinyMCEEditor } from './TinyMCEEditor';
+export { ContentPreview } from './ContentPreview';

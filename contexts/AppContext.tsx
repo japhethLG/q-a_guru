@@ -6,7 +6,7 @@ import React, {
 	ReactNode,
 } from 'react';
 import { QaConfig, DocumentVersion, SelectionMetadata } from '../types';
-import { getActiveTemplate } from '../services/templateStorage';
+import { getActiveTemplate, getTemplateById } from '../services/templateStorage';
 
 interface AppContextType {
 	// Files state
@@ -75,7 +75,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		type: 'mixed',
 		difficulty: 'medium',
 		instructions: '',
-		model: 'gemini-2.5-flash',
+		model: 'gemini-2.5-flash-lite',
 	});
 	const [generationConfig, setGenerationConfig] = useState<QaConfig | null>(
 		null
@@ -100,29 +100,36 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 	const [isParsing, setIsParsing] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
 
-	// Set default template on mount based on initial question type
+	// Set default template on mount and sync type from template
 	useEffect(() => {
 		const activeTemplate = getActiveTemplate(qaConfig.type);
 		setQaConfig((config) => ({
 			...config,
 			selectedTemplateId: activeTemplate.id,
-			answerFormat: activeTemplate.answerFormat,
+			type: activeTemplate.questionType,
 		}));
 	}, []);
 
-	// Update template when question type changes (if no template is manually selected)
+	// Sync type from selected template whenever template changes
 	useEffect(() => {
-		// Only auto-update if no template is currently selected for the new type
-		// This prevents overriding manually selected templates
-		if (!qaConfig.selectedTemplateId) {
+		if (qaConfig.selectedTemplateId) {
+			const selectedTemplate = getTemplateById(qaConfig.selectedTemplateId);
+			if (selectedTemplate && selectedTemplate.questionType !== qaConfig.type) {
+				setQaConfig((config) => ({
+					...config,
+					type: selectedTemplate.questionType,
+				}));
+			}
+		} else {
+			// If no template is selected, select default template for current type
 			const activeTemplate = getActiveTemplate(qaConfig.type);
 			setQaConfig((config) => ({
 				...config,
 				selectedTemplateId: activeTemplate.id,
-				answerFormat: activeTemplate.answerFormat,
+				type: activeTemplate.questionType,
 			}));
 		}
-	}, [qaConfig.type]);
+	}, [qaConfig.selectedTemplateId]);
 
 	const value: AppContextType = {
 		// Files
