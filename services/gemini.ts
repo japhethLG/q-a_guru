@@ -316,7 +316,7 @@ export function processFunctionCalls(params: {
 
 	let newHtml = '';
 
-	if (typeof full_document_html === 'string' && full_document_html) {
+	if (typeof full_document_html === 'string') {
 		newHtml = full_document_html;
 	} else if (
 		typeof html_snippet_to_replace === 'string' &&
@@ -325,16 +325,30 @@ export function processFunctionCalls(params: {
 	) {
 		// Allow empty string for deletion - replacement_html can be '' to delete content
 		// Try exact replacement first
-		newHtml =
-			tryReplaceExact(documentHtml, html_snippet_to_replace, replacement_html) ||
-			tryReplaceFuzzy(documentHtml, html_snippet_to_replace, replacement_html) ||
-			'';
-		if (!newHtml) {
-			return {
-				reflection: null,
-				errorMessage:
-					"I tried to make an edit, but couldn't find the exact text to change. Try highlighting it first or ask me to update the full document.",
-			};
+		const exactResult = tryReplaceExact(
+			documentHtml,
+			html_snippet_to_replace,
+			replacement_html
+		);
+		if (exactResult !== null) {
+			newHtml = exactResult;
+		} else {
+			// Try fuzzy replacement if exact failed
+			const fuzzyResult = tryReplaceFuzzy(
+				documentHtml,
+				html_snippet_to_replace,
+				replacement_html
+			);
+			if (fuzzyResult !== null) {
+				newHtml = fuzzyResult;
+			} else {
+				// Both replacements failed - return error
+				return {
+					reflection: null,
+					errorMessage:
+						"I tried to make an edit, but couldn't find the exact text to change. Try highlighting it first or ask me to update the full document.",
+				};
+			}
 		}
 	} else {
 		return { reflection: null };
@@ -351,8 +365,12 @@ export function processFunctionCalls(params: {
 	];
 
 	let changeDescription = '';
-	if (full_document_html) {
-		changeDescription = 'Full document was updated with new content.';
+	if (typeof full_document_html === 'string') {
+		if (full_document_html === '') {
+			changeDescription = 'Full document was cleared (all content deleted).';
+		} else {
+			changeDescription = 'Full document was updated with new content.';
+		}
 	} else if (html_snippet_to_replace && typeof replacement_html === 'string') {
 		if (replacement_html === '') {
 			changeDescription = 'Content was deleted from the document.';

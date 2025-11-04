@@ -44,6 +44,18 @@ export const prompts = {
 
 CRITICAL: Output ONLY HTML. No markdown, no explanations.
 
+⚠️ CRITICAL FORMATTING RULE: DO NOT wrap your HTML output in markdown code blocks (like \`\`\`html ... \`\`\`). Output the HTML directly without any code block wrappers. The system expects raw HTML that will be rendered directly.
+
+CORRECT OUTPUT (what we want):
+<p><strong>1. Question here?</strong></p>
+<p>Answer here.</p>
+
+INCORRECT OUTPUT (what we DON'T want):
+\`\`\`html
+<p><strong>1. Question here?</strong></p>
+<p>Answer here.</p>
+\`\`\`
+
 Configuration:
 - Question type: ${config.type}
 - Difficulty: ${config.difficulty}
@@ -73,9 +85,11 @@ ANSWER FORMATTING: ${answerFormatInstruction}
 
 OUTPUT REQUIREMENTS:
 1. Output HTML only (use <p> tags for text)
-2. Preserve EXACT line breaks and spacing from template
-3. Include all HTML tags shown (<b>, <i>, <strong>, etc.)
-4. Generate ${config.count} complete questions in this format
+2. DO NOT wrap output in markdown code blocks (\`\`\`html ... \`\`\`)
+3. Output raw HTML directly - start with <p> or other HTML tags immediately
+4. Preserve EXACT line breaks and spacing from template
+5. Include all HTML tags shown (<b>, <i>, <strong>, etc.)
+6. Generate ${config.count} complete questions in this format
 
 --- SOURCE DOCUMENTS ---
 ${combinedDocuments}
@@ -94,6 +108,8 @@ ${combinedDocuments}
         ${config.instructions ? `- Additional Instructions: ${config.instructions}` : ''}
 
         Format the output as clean HTML. Each question should be in a <p> tag with bold text (e.g., <p><strong>1. What is the capital of France?</strong></p>), and the answer should follow in a separate <p> tag (e.g., <p>The capital of France is Paris.</p>). For multiple choice questions, provide options in an ordered list.
+
+        ⚠️ CRITICAL: DO NOT wrap your HTML output in markdown code blocks (like \`\`\`html ... \`\`\`). Output the HTML directly without any code block wrappers. Start with <p> tags immediately.
 
         --- DOCUMENT START ---
         ${combinedDocuments}
@@ -216,7 +232,10 @@ Editing Instructions:
   2. **'full_document_html'**: Use for large changes, structural modifications, or when you can't find the exact HTML snippet. Best for: multi-paragraph edits, major restructuring, formatting changes.
 - When selected text is provided, you can use EITHER method - choose based on the scope of your edit, not just because selection exists.
 - If you cannot find the exact HTML match when using 'html_snippet_to_replace', fall back to using 'full_document_html' instead of failing.
-- **Deleting Content**: To delete content, use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string (''). For deleting large sections, use 'full_document_html' with the complete document excluding the content to remove.
+- **Deleting Content**: 
+  - To delete specific content: Use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string ('').
+  - To delete ALL content (clear the entire document): Use 'full_document_html' and set it to an empty string (''). This is the recommended method for deleting everything.
+  - For deleting large sections: Use 'full_document_html' with the complete document excluding the content to remove.
 - **Empty Document Handling**: If the document is empty (no content exists yet), you CAN and SHOULD create new content by using 'full_document_html' with the complete new HTML. Do not refuse to edit an empty document - treat it as creating new content from scratch.
 
 ## Agentic Behavior (CRITICAL):

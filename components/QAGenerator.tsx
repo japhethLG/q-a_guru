@@ -2,6 +2,7 @@ import React, { useRef, ChangeEvent, useEffect } from 'react';
 import { DocumentVersion } from '../types';
 import { parseFile } from '../services/parser';
 import { generateQaStream } from '../services/gemini';
+import { stripCodeBlockWrappers } from '../utils/contentHelpers';
 import { FileUploadSection } from './FileUploadSection';
 import { ConfigSection } from './ConfigSection';
 import { EditorSection } from './EditorSection';
@@ -123,22 +124,28 @@ export const QAGenerator: React.FC = () => {
 
 				if (chunk.text) {
 					accumulatedText += chunk.text;
-					setEditorContent(accumulatedText);
+					// Strip code block wrappers during streaming for real-time display
+					const cleanedText = stripCodeBlockWrappers(accumulatedText);
+					setEditorContent(cleanedText);
 				}
 			}
 
 			// Only create version if not aborted
 			if (!abortControllerRef.current?.signal.aborted && accumulatedText) {
+				// Strip code block wrappers from final content before storing
+				const cleanedContent = stripCodeBlockWrappers(accumulatedText);
 				const initialVersion: DocumentVersion = {
 					id: crypto.randomUUID(),
 					timestamp: Date.now(),
-					content: accumulatedText,
+					content: cleanedContent,
 					reason: 'Initial generation',
 				};
 				setVersionHistory([initialVersion]);
 				setCurrentVersionId(initialVersion.id);
 				setIsEditorDirty(false);
 				setPreviewVersionId(null);
+				// Update editor content with cleaned version
+				setEditorContent(cleanedContent);
 			}
 		} catch (error) {
 			// Check if it was an abort error

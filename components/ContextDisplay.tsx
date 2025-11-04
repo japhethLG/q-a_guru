@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEInstance } from 'tinymce';
 import { WandIcon, XIcon } from './common/Icons';
+import { Button } from './common';
 import { SelectionMetadata } from '../types';
 
 interface ContextDisplayProps {
@@ -60,16 +61,17 @@ export const ContextDisplay: React.FC<ContextDisplayProps> = ({
 					</span>
 				</div>
 				<div className="flex items-center gap-2">
-					<button
+					<Button
+						variant="icon"
+						size="sm"
 						onClick={(e) => {
 							e.stopPropagation();
 							onClear();
 						}}
-						className="rounded-full p-1 hover:bg-gray-600"
 						title="Clear context for next message"
-					>
-						<XIcon className="h-3 w-3 text-gray-400" />
-					</button>
+						icon={<XIcon className="h-3 w-3" />}
+						className="rounded-full"
+					/>
 					<svg
 						className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? '' : 'rotate-180'}`}
 						fill="none"
