@@ -5,6 +5,14 @@ import {
 	getReflectionStream,
 	processFunctionCalls,
 } from '../services/gemini';
+import {
+	ChatStreamState,
+	ReflectionStreamState,
+	processChatStreamChunk,
+	processReflectionStreamChunk,
+	createMessageWithThinking,
+	createReflectionMessageWithThinking,
+} from '../utils/streamHelpers';
 
 interface UseChatProps {
 	documentHtml: string;
@@ -95,6 +103,135 @@ export const useChat = ({
 	};
 
 	/**
+	 * Process the chat stream and accumulate text/thinking
+	 */
+	const processChatStream = async (
+		responseStream: AsyncGenerator<any, void, unknown>
+	): Promise<{
+		fullResponse: any;
+		accumulatedText: string;
+		accumulatedThinking: string;
+		thinkingStartTime: number | undefined;
+	}> => {
+		let fullResponse = null;
+		const streamState: ChatStreamState = {
+			accumulatedText: '',
+			accumulatedThinking: '',
+			thinkingStartTime: undefined,
+			isFirstChunk: true,
+		};
+
+		for await (const chunk of await responseStream) {
+			// Check if aborted
+			if (abortControllerRef.current?.signal.aborted) {
+				break;
+			}
+
+			fullResponse = chunk; // Store the latest chunk
+
+			const { text, thinking, thinkingStartTime, updatedState } =
+				processChatStreamChunk(chunk, streamState);
+
+			// Update state reference
+			Object.assign(streamState, updatedState);
+
+			// Update messages if we have text or thinking
+			if (text !== null) {
+				setMessages((prev) => {
+					const updated = [...prev];
+					const lastMessage = updated[updated.length - 1];
+					updated[updated.length - 1] = createMessageWithThinking(
+						text,
+						streamState.accumulatedThinking,
+						streamState.thinkingStartTime,
+						lastMessage
+					);
+					return updated;
+				});
+			} else if (thinking) {
+				// Update thinking even if no text content yet
+				setMessages((prev) => {
+					const updated = [...prev];
+					if (updated.length > 0 && updated[updated.length - 1].role === 'model') {
+						const lastMessage = updated[updated.length - 1];
+						updated[updated.length - 1] = {
+							...lastMessage,
+							...(streamState.accumulatedThinking && {
+								thinking: streamState.accumulatedThinking,
+								...(streamState.thinkingStartTime && {
+									thinkingStartTime: streamState.thinkingStartTime,
+								}),
+							}),
+						};
+					}
+					return updated;
+				});
+			}
+		}
+
+		return {
+			fullResponse,
+			accumulatedText: streamState.accumulatedText,
+			accumulatedThinking: streamState.accumulatedThinking,
+			thinkingStartTime: streamState.thinkingStartTime,
+		};
+	};
+
+	/**
+	 * Process the reflection stream and update messages
+	 */
+	const processReflectionStream = async (
+		reflectionStream: AsyncGenerator<any, void, unknown>,
+		toolUsageMessage: string
+	): Promise<void> => {
+		const reflectionState: ReflectionStreamState = {
+			reflectionText: '',
+			reflectionThinking: '',
+			reflectionThinkingStartTime: undefined,
+		};
+
+		for await (const chunk of await reflectionStream) {
+			const { text, thinking, thinkingStartTime, updatedState } =
+				processReflectionStreamChunk(chunk, reflectionState);
+
+			// Update state reference
+			Object.assign(reflectionState, updatedState);
+
+			// Update messages if we have text or thinking
+			if (text !== null) {
+				setMessages((prev) => {
+					const updated = [...prev];
+					if (updated.length > 0) {
+						const currentMessage = updated[updated.length - 1];
+						updated[updated.length - 1] = createReflectionMessageWithThinking(
+							toolUsageMessage + text,
+							reflectionState.reflectionThinking,
+							reflectionState.reflectionThinkingStartTime,
+							currentMessage
+						);
+					}
+					return updated;
+				});
+			} else if (thinking) {
+				// Update thinking even if no text content yet
+				setMessages((prev) => {
+					const updated = [...prev];
+					if (updated.length > 0) {
+						const currentMessage = updated[updated.length - 1];
+						updated[updated.length - 1] = createReflectionMessageWithThinking(
+							currentMessage.content,
+							reflectionState.reflectionThinking,
+							reflectionState.reflectionThinkingStartTime,
+							currentMessage
+						);
+					}
+					return updated;
+				});
+			}
+		}
+	};
+
+	/**
 	 * Helper function to send a message with a specific messages array context
 	 */
 	const sendMessageWithContext = async (
@@ -128,96 +265,9 @@ export const useChat = ({
 				abortControllerRef.current.signal
 			);
 
-			// Accumulate chunks and aggregate the final response
-			let fullResponse = null;
-			let accumulatedText = '';
-			let accumulatedThinking = '';
-			let thinkingStartTime: number | undefined = undefined;
-			let isFirstChunk = true;
-
-			for await (const chunk of await responseStream) {
-				// Check if aborted
-				if (abortControllerRef.current?.signal.aborted) {
-					break;
-				}
-
-				fullResponse = chunk; // Store the latest chunk
-
-				// Extract thinking tokens if available
-				// Check for chunk.thinking property or access parts with thought: true
-				const chunkAny = chunk as any;
-				let thinkingText = '';
-
-				if (chunkAny.thinking) {
-					thinkingText = chunkAny.thinking;
-				} else if (chunkAny.candidates && chunkAny.candidates[0]?.content?.parts) {
-					// Extract thinking from parts where thought is true
-					const thinkingParts = chunkAny.candidates[0].content.parts
-						.filter((part: any) => part.thought === true && part.text)
-						.map((part: any) => part.text)
-						.join('');
-					thinkingText = thinkingParts;
-				}
-
-				if (thinkingText) {
-					// Track when thinking starts
-					if (!thinkingStartTime && accumulatedThinking === '') {
-						thinkingStartTime = Date.now();
-					}
-					accumulatedThinking += thinkingText;
-				}
-
-				// Accumulate text for streaming display
-				if (chunk.text) {
-					// On first chunk, replace "Thinking..." with actual content
-					if (isFirstChunk) {
-						accumulatedText = chunk.text;
-						isFirstChunk = false;
-					} else {
-						accumulatedText += chunk.text;
-					}
-
-					// Update the last message with accumulated text and thinking
-					setMessages((prev) => {
-						const updated = [...prev];
-						const lastMessage = updated[updated.length - 1];
-						updated[updated.length - 1] = {
-							role: 'model',
-							content: accumulatedText,
-							...(accumulatedThinking
-								? {
-										thinking: accumulatedThinking,
-										...(thinkingStartTime && { thinkingStartTime }),
-									}
-								: lastMessage.thinking
-									? {
-											thinking: lastMessage.thinking,
-											...(lastMessage.thinkingStartTime && {
-												thinkingStartTime: lastMessage.thinkingStartTime,
-											}),
-										}
-									: {}),
-						};
-						return updated;
-					});
-				} else if (thinkingText) {
-					// Update thinking even if no text content yet
-					setMessages((prev) => {
-						const updated = [...prev];
-						if (updated.length > 0 && updated[updated.length - 1].role === 'model') {
-							const lastMessage = updated[updated.length - 1];
-							updated[updated.length - 1] = {
-								...lastMessage,
-								...(accumulatedThinking && {
-									thinking: accumulatedThinking,
-									...(thinkingStartTime && { thinkingStartTime }),
-								}),
-							};
-						}
-						return updated;
-					});
-				}
-			}
+			// Process the chat stream
+			const { fullResponse, accumulatedText } =
+				await processChatStream(responseStream);
 
 			// Process the final response for function calls
 			if (!fullResponse) {
@@ -269,92 +319,7 @@ export const useChat = ({
 							abortControllerRef.current.signal
 						);
 
-						let reflectionText = '';
-						let reflectionThinking = '';
-						let reflectionThinkingStartTime: number | undefined = undefined;
-						for await (const chunk of await reflectionStream) {
-							// Extract thinking tokens from reflection chunks
-							const chunkAny = chunk as any;
-							let thinkingText = '';
-
-							if (chunkAny.thinking) {
-								thinkingText = chunkAny.thinking;
-							} else if (
-								chunkAny.candidates &&
-								chunkAny.candidates[0]?.content?.parts
-							) {
-								const thinkingParts = chunkAny.candidates[0].content.parts
-									.filter((part: any) => part.thought === true && part.text)
-									.map((part: any) => part.text)
-									.join('');
-								thinkingText = thinkingParts;
-							}
-
-							if (thinkingText) {
-								// Track when reflection thinking starts
-								if (!reflectionThinkingStartTime && reflectionThinking === '') {
-									reflectionThinkingStartTime = Date.now();
-								}
-								reflectionThinking += thinkingText;
-							}
-
-							if (chunk.text) {
-								reflectionText += chunk.text;
-								setMessages((prev) => {
-									const updated = [...prev];
-									if (updated.length > 0) {
-										const currentMessage = updated[updated.length - 1];
-										const combinedThinking =
-											(currentMessage.thinking || '') + reflectionThinking;
-										updated[updated.length - 1] = {
-											role: 'model',
-											content: toolUsageMessage + reflectionText,
-											...(combinedThinking
-												? {
-														thinking: combinedThinking,
-														...(currentMessage.thinkingStartTime ||
-														reflectionThinkingStartTime
-															? {
-																	thinkingStartTime:
-																		currentMessage.thinkingStartTime ||
-																		reflectionThinkingStartTime,
-																}
-															: {}),
-													}
-												: {}),
-										};
-									}
-									return updated;
-								});
-							} else if (thinkingText) {
-								// Update thinking even if no text content yet
-								setMessages((prev) => {
-									const updated = [...prev];
-									if (updated.length > 0) {
-										const currentMessage = updated[updated.length - 1];
-										const combinedThinking =
-											(currentMessage.thinking || '') + reflectionThinking;
-										updated[updated.length - 1] = {
-											...currentMessage,
-											...(combinedThinking
-												? {
-														thinking: combinedThinking,
-														...(currentMessage.thinkingStartTime ||
-														reflectionThinkingStartTime
-															? {
-																	thinkingStartTime:
-																		currentMessage.thinkingStartTime ||
-																		reflectionThinkingStartTime,
-																}
-															: {}),
-													}
-												: {}),
-										};
-									}
-									return updated;
-								});
-							}
-						}
+						await processReflectionStream(reflectionStream, toolUsageMessage);
 						setIsStreamingText(false);
 					}
 				} catch (error) {
