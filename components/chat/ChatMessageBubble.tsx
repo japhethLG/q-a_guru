@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../../types';
-import { ChatMessageContent, Button, Textarea } from '../common';
+import { ChatMessageContent, Button, Textarea, ThinkingSection } from '../common';
 import { LoaderIcon, CopyIcon, EditIcon, RefreshCwIcon } from '../common/Icons';
 
 interface ChatMessageBubbleProps {
@@ -61,6 +61,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 			onCopy();
 		} else {
 			try {
+				// Only copy main content, exclude thinking tokens
 				await navigator.clipboard.writeText(message.content);
 				setCopied(true);
 				setTimeout(() => setCopied(false), 2000);
@@ -184,11 +185,20 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 				</div>
 			)}
 
-			{/* Show thinking indicator on top if this is streaming */}
-			{isStreaming && (
+			{/* Show thinking section for AI messages with thinking tokens */}
+			{isAI && message.thinking && (
+				<ThinkingSection 
+					thinking={message.thinking} 
+					isStreaming={isStreaming}
+					thinkingStartTime={message.thinkingStartTime}
+				/>
+			)}
+
+			{/* Show loading indicator on top if this is streaming and no thinking tokens yet */}
+			{isStreaming && (!isAI || !message.thinking) && (
 				<div className="mb-2 flex items-center gap-2 text-xs text-gray-400">
 					<LoaderIcon className="h-4 w-4 animate-spin text-cyan-400" />
-					<span>Thinking...</span>
+					<span>Loading...</span>
 				</div>
 			)}
 			<div className="wrap-break-words overflow-hidden">

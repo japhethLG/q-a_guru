@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { XIcon } from './Icons';
+import { Button } from './Button';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -74,13 +75,13 @@ export const Modal: React.FC<ModalProps> = ({
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-gray-700 p-6">
 					<h2 className="text-xl font-semibold text-white">{title}</h2>
-					<button
+					<Button
+						variant="icon"
+						size="sm"
+						icon={<XIcon className="h-5 w-5" />}
 						onClick={onClose}
-						className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
 						aria-label="Close modal"
-					>
-						<XIcon className="h-5 w-5" />
-					</button>
+					/>
 				</div>
 
 				{/* Body */}

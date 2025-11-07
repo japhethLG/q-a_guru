@@ -30,6 +30,8 @@ export interface ChatConfig {
 export interface ChatMessage {
 	role: 'user' | 'model' | 'system'; // System role added for internal messages
 	content: string;
+	thinking?: string; // Thinking tokens from Gemini
+	thinkingStartTime?: number; // Timestamp when thinking started
 	sources?: GroundingSource[];
 }
 

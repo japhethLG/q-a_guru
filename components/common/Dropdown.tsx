@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { XIcon, ChevronDownIcon } from './Icons';
+import { Button } from './Button';
 
 type DropdownTrigger = 'click' | 'hover';
 
@@ -111,15 +112,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
 								<h4 className="font-semibold text-gray-200">{header}</h4>
 							)}
 							{trigger === 'click' && (
-								<button
+								<Button
+									variant="icon"
+									size="sm"
+									icon={<XIcon className="h-4 w-4" />}
 									onClick={(e) => {
 										e.stopPropagation();
 										handleOpenChange(false);
 									}}
-									className="rounded p-1 hover:bg-gray-600"
-								>
-									<XIcon className="h-4 w-4" />
-								</button>
+								/>
 							)}
 						</div>
 					)}

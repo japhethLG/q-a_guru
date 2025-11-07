@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import 'highlight.js/styles/github-dark.css';
+import { Button } from './Button';
 
 interface CodeBlockProps {
 	language?: string;
@@ -61,19 +62,21 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
 			<pre className="max-w-full overflow-x-auto rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-inner">
 				<code className="font-mono text-sm">{code}</code>
 			</pre>
-			<button
+			<Button
+				variant={copied ? 'primary' : 'secondary'}
+				size="sm"
 				onClick={handleCopy}
-				className={`absolute top-2 right-2 z-10 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+				className={`absolute top-2 right-2 z-10 text-xs transition-all duration-200 ${
 					showButton ? 'visible opacity-100' : 'invisible opacity-0'
 				} ${
 					copied
-						? 'bg-green-600 text-white'
+						? 'bg-green-600 hover:bg-green-700 text-white border-0'
 						: 'border border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700'
 				}`}
 				title={copied ? 'Copied!' : 'Copy code'}
 			>
 				{copied ? '✓ Copied' : '📋 Copy'}
-			</button>
+			</Button>
 		</div>
 	);
 };

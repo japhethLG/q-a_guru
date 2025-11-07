@@ -176,6 +176,10 @@ export const getReflectionStream = async function* (
 			contents: contents,
 			config: {
 				systemInstruction: systemInstruction,
+				thinkingConfig: {
+					thinkingBudget: -1, // Enable dynamic thinking (auto-adjusts based on complexity)
+					includeThoughts: true, // Include the model's thought process in response
+				},
 			},
 		});
 

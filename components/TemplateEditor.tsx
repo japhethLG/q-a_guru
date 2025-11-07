@@ -9,7 +9,7 @@ import type { Editor as TinyMCEInstance } from 'tinymce';
 import { QuestionTemplate, QuestionType } from '../types';
 import { getAvailableVariables, validateTemplate } from '../services/templates';
 import { Button, Select, Input, TinyMCEEditor } from './common';
-import { EditIcon, ChevronDownIcon, ChevronUpIcon } from './common/Icons';
+import { EditIcon } from './common/Icons';
 
 interface TemplateEditorProps {
 	template?: QuestionTemplate;
@@ -32,9 +32,6 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 		template?.templateString || ''
 	);
 	const [errors, setErrors] = useState<string[]>([]);
-	const [expandedSection, setExpandedSection] = useState<'variables' | null>(
-		'variables'
-	);
 
 	const editorRef = useRef<TinyMCEInstance | null>(null);
 
@@ -164,39 +161,27 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 						<div className="sticky top-4 space-y-2">
 							{/* Available Variables */}
 							<div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800/50">
-								<button
-									onClick={() =>
-										setExpandedSection(
-											expandedSection === 'variables' ? null : 'variables'
-										)
-									}
-									className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-gray-700/50"
-								>
-									<h4 className="flex items-center gap-2 text-sm font-semibold text-white">
-										<EditIcon className="h-4 w-4 text-cyan-400" />
+								<div className="flex items-center gap-2 border-b border-gray-700 px-4 py-3">
+									<EditIcon className="h-4 w-4 text-cyan-400" />
+									<h4 className="text-sm font-semibold text-white">
 										Available Variables
 									</h4>
-									{expandedSection === 'variables' ? (
-										<ChevronUpIcon className="h-4 w-4 text-gray-400" />
-									) : (
-										<ChevronDownIcon className="h-4 w-4 text-gray-400" />
-									)}
-								</button>
-								{expandedSection === 'variables' && (
-									<div className="max-h-64 space-y-2 overflow-y-auto p-4">
-										{availableVariables.map(({ variable, description }) => (
-											<div key={variable} className="group">
-												<button
-													onClick={() => insertVariable(variable)}
-													className="rounded bg-gray-700 px-2 py-1 font-mono text-xs text-cyan-400 transition-all hover:bg-gray-600 hover:text-cyan-300"
-												>
-													{variable}
-												</button>
-												<span className="ml-2 text-xs text-gray-400">{description}</span>
-											</div>
-										))}
-									</div>
-								)}
+								</div>
+								<div className="max-h-64 space-y-2 overflow-y-auto p-4">
+									{availableVariables.map(({ variable, description }) => (
+										<div key={variable} className="group">
+											<Button
+												variant="secondary"
+												size="sm"
+												onClick={() => insertVariable(variable)}
+												className="font-mono text-xs text-cyan-400 hover:text-cyan-300"
+											>
+												{variable}
+											</Button>
+											<span className="ml-2 text-xs text-gray-400">{description}</span>
+										</div>
+									))}
+								</div>
 							</div>
 						</div>
 					</div>

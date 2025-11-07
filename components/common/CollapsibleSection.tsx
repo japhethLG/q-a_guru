@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from './Icons';
+import { Button } from './Button';
 
 interface CollapsibleSectionProps {
 	title: string;
@@ -47,20 +48,22 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 					{icon}
 					{title}
 				</h3>
-				<button
+				<Button
+					variant="icon"
+					size="sm"
+					icon={
+						isCollapsed ? (
+							<ChevronDownIcon className="h-5 w-5 text-gray-400" />
+						) : (
+							<ChevronUpIcon className="h-5 w-5 text-gray-400" />
+						)
+					}
 					onClick={(e) => {
 						e.stopPropagation();
 						setIsCollapsed(!isCollapsed);
 					}}
-					className="rounded-md p-1 transition-colors hover:bg-gray-700"
 					title={isCollapsed ? 'Expand' : 'Collapse'}
-				>
-					{isCollapsed ? (
-						<ChevronDownIcon className="h-5 w-5 text-gray-400" />
-					) : (
-						<ChevronUpIcon className="h-5 w-5 text-gray-400" />
-					)}
-				</button>
+				/>
 			</div>
 			{!isCollapsed && (
 				<div className={`${contentClassName || ''}`}>{children}</div>

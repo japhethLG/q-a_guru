@@ -1,7 +1,7 @@
 import React from 'react';
 import { DocumentVersion } from '../types';
 import { HistoryIcon, TrashIcon } from './common/Icons';
-import { CollapsibleSection } from './common';
+import { CollapsibleSection, Button } from './common';
 
 interface VersionHistoryProps {
 	versions: DocumentVersion[];
@@ -79,26 +79,28 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
 											</p>
 										</div>
 										<div className="flex flex-shrink-0 items-center space-x-2">
-											<button
+											<Button
+												variant="icon"
+												size="sm"
+												icon={<HistoryIcon className="h-4 w-4 text-cyan-400" />}
 												onClick={(e) => {
 													e.stopPropagation();
 													handleRevertClick(version.id);
 												}}
-												className="rounded-full p-1 hover:bg-cyan-500/20"
 												title="Revert to this version"
-											>
-												<HistoryIcon className="h-4 w-4 text-cyan-400" />
-											</button>
-											<button
+												className="rounded-full hover:bg-cyan-500/20"
+											/>
+											<Button
+												variant="icon"
+												size="sm"
+												icon={<TrashIcon className="h-4 w-4 text-red-400" />}
 												onClick={(e) => {
 													e.stopPropagation();
 													handleDeleteClick(version.id);
 												}}
-												className="rounded-full p-1 hover:bg-red-500/20"
 												title="Delete version"
-											>
-												<TrashIcon className="h-4 w-4 text-red-400" />
-											</button>
+												className="rounded-full hover:bg-red-500/20"
+											/>
 										</div>
 									</div>
 								</li>

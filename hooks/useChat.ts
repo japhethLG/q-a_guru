@@ -105,7 +105,7 @@ export const useChat = ({
 
 		const userMessage: ChatMessage = { role: 'user', content: messageToSend };
 		const updatedMessages = [...contextMessages, userMessage];
-		
+
 		setIsLoading(true);
 		setIsStreamingText(true);
 
@@ -131,6 +131,8 @@ export const useChat = ({
 			// Accumulate chunks and aggregate the final response
 			let fullResponse = null;
 			let accumulatedText = '';
+			let accumulatedThinking = '';
+			let thinkingStartTime: number | undefined = undefined;
 			let isFirstChunk = true;
 
 			for await (const chunk of await responseStream) {
@@ -140,6 +142,30 @@ export const useChat = ({
 				}
 
 				fullResponse = chunk; // Store the latest chunk
+
+				// Extract thinking tokens if available
+				// Check for chunk.thinking property or access parts with thought: true
+				const chunkAny = chunk as any;
+				let thinkingText = '';
+
+				if (chunkAny.thinking) {
+					thinkingText = chunkAny.thinking;
+				} else if (chunkAny.candidates && chunkAny.candidates[0]?.content?.parts) {
+					// Extract thinking from parts where thought is true
+					const thinkingParts = chunkAny.candidates[0].content.parts
+						.filter((part: any) => part.thought === true && part.text)
+						.map((part: any) => part.text)
+						.join('');
+					thinkingText = thinkingParts;
+				}
+
+				if (thinkingText) {
+					// Track when thinking starts
+					if (!thinkingStartTime && accumulatedThinking === '') {
+						thinkingStartTime = Date.now();
+					}
+					accumulatedThinking += thinkingText;
+				}
 
 				// Accumulate text for streaming display
 				if (chunk.text) {
@@ -151,10 +177,43 @@ export const useChat = ({
 						accumulatedText += chunk.text;
 					}
 
-					// Update the last message with accumulated text
+					// Update the last message with accumulated text and thinking
 					setMessages((prev) => {
 						const updated = [...prev];
-						updated[updated.length - 1] = { role: 'model', content: accumulatedText };
+						const lastMessage = updated[updated.length - 1];
+						updated[updated.length - 1] = {
+							role: 'model',
+							content: accumulatedText,
+							...(accumulatedThinking
+								? {
+										thinking: accumulatedThinking,
+										...(thinkingStartTime && { thinkingStartTime }),
+									}
+								: lastMessage.thinking
+									? {
+											thinking: lastMessage.thinking,
+											...(lastMessage.thinkingStartTime && {
+												thinkingStartTime: lastMessage.thinkingStartTime,
+											}),
+										}
+									: {}),
+						};
+						return updated;
+					});
+				} else if (thinkingText) {
+					// Update thinking even if no text content yet
+					setMessages((prev) => {
+						const updated = [...prev];
+						if (updated.length > 0 && updated[updated.length - 1].role === 'model') {
+							const lastMessage = updated[updated.length - 1];
+							updated[updated.length - 1] = {
+								...lastMessage,
+								...(accumulatedThinking && {
+									thinking: accumulatedThinking,
+									...(thinkingStartTime && { thinkingStartTime }),
+								}),
+							};
+						}
 						return updated;
 					});
 				}
@@ -211,15 +270,85 @@ export const useChat = ({
 						);
 
 						let reflectionText = '';
+						let reflectionThinking = '';
+						let reflectionThinkingStartTime: number | undefined = undefined;
 						for await (const chunk of await reflectionStream) {
+							// Extract thinking tokens from reflection chunks
+							const chunkAny = chunk as any;
+							let thinkingText = '';
+
+							if (chunkAny.thinking) {
+								thinkingText = chunkAny.thinking;
+							} else if (
+								chunkAny.candidates &&
+								chunkAny.candidates[0]?.content?.parts
+							) {
+								const thinkingParts = chunkAny.candidates[0].content.parts
+									.filter((part: any) => part.thought === true && part.text)
+									.map((part: any) => part.text)
+									.join('');
+								thinkingText = thinkingParts;
+							}
+
+							if (thinkingText) {
+								// Track when reflection thinking starts
+								if (!reflectionThinkingStartTime && reflectionThinking === '') {
+									reflectionThinkingStartTime = Date.now();
+								}
+								reflectionThinking += thinkingText;
+							}
+
 							if (chunk.text) {
 								reflectionText += chunk.text;
 								setMessages((prev) => {
 									const updated = [...prev];
 									if (updated.length > 0) {
+										const currentMessage = updated[updated.length - 1];
+										const combinedThinking =
+											(currentMessage.thinking || '') + reflectionThinking;
 										updated[updated.length - 1] = {
 											role: 'model',
 											content: toolUsageMessage + reflectionText,
+											...(combinedThinking
+												? {
+														thinking: combinedThinking,
+														...(currentMessage.thinkingStartTime ||
+														reflectionThinkingStartTime
+															? {
+																	thinkingStartTime:
+																		currentMessage.thinkingStartTime ||
+																		reflectionThinkingStartTime,
+																}
+															: {}),
+													}
+												: {}),
+										};
+									}
+									return updated;
+								});
+							} else if (thinkingText) {
+								// Update thinking even if no text content yet
+								setMessages((prev) => {
+									const updated = [...prev];
+									if (updated.length > 0) {
+										const currentMessage = updated[updated.length - 1];
+										const combinedThinking =
+											(currentMessage.thinking || '') + reflectionThinking;
+										updated[updated.length - 1] = {
+											...currentMessage,
+											...(combinedThinking
+												? {
+														thinking: combinedThinking,
+														...(currentMessage.thinkingStartTime ||
+														reflectionThinkingStartTime
+															? {
+																	thinkingStartTime:
+																		currentMessage.thinkingStartTime ||
+																		reflectionThinkingStartTime,
+																}
+															: {}),
+													}
+												: {}),
 										};
 									}
 									return updated;
@@ -317,7 +446,10 @@ export const useChat = ({
 		const truncatedMessages = messages.slice(0, userMessageIndex + 1);
 
 		// Send the user message again (without the last message since it will be added in sendMessageWithContext)
-		await sendMessageWithContext(userMessageContent, truncatedMessages.slice(0, -1));
+		await sendMessageWithContext(
+			userMessageContent,
+			truncatedMessages.slice(0, -1)
+		);
 	};
 
 	const handleStopGeneration = () => {
@@ -349,4 +481,3 @@ export const useChat = ({
 		replacePlaceholderMessage,
 	};
 };
-
