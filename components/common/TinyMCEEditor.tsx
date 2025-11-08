@@ -16,6 +16,8 @@ interface TinyMCEEditorProps {
 	resize?: boolean;
 	branding?: boolean;
 	statusbar?: boolean;
+	quickbarsSelectionToolbar?: string;
+	quickbarsInsertToolbar?: string;
 }
 
 export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
@@ -49,6 +51,8 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 	resize = true,
 	branding = false,
 	statusbar = false,
+	quickbarsSelectionToolbar,
+	quickbarsInsertToolbar,
 }) => {
 	const editorRef = useRef<TinyMCEInstance | null>(null);
 	const isUpdatingContentRef = useRef(false);
@@ -205,6 +209,12 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 				resize,
 				branding,
 				statusbar,
+				...(quickbarsSelectionToolbar && {
+					quickbars_selection_toolbar: quickbarsSelectionToolbar,
+				}),
+				...(quickbarsInsertToolbar && {
+					quickbars_insert_toolbar: quickbarsInsertToolbar,
+				}),
 			}}
 		/>
 	);

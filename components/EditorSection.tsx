@@ -11,6 +11,12 @@ import type { Editor as TinyMCEEditorType } from 'tinymce';
 import { saveAs } from 'file-saver';
 import TurndownService from 'turndown';
 import { htmlToDocx } from '../services/docxExport';
+import {
+	TINYMCE_PLUGINS,
+	TINYMCE_TOOLBAR,
+	TINYMCE_QUICKBARS_SELECTION_TOOLBAR,
+	TINYMCE_QUICKBARS_INSERT_TOOLBAR,
+} from '../utils/tinymceConfig';
 
 interface EditorSectionProps {
 	content: string;
@@ -29,9 +35,6 @@ interface EditorSectionProps {
 	onDelete: (versionId: string) => void;
 	highlightedContent?: string | null;
 }
-
-const toolbarOptions =
-	'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor | subscript superscript | blockquote code | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | removeformat';
 
 export const EditorSection: React.FC<EditorSectionProps> = ({
 	content,
@@ -170,7 +173,10 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 					onSelectionChange={handleSelectionChange}
 					disabled={isPreviewing}
 					onInit={(editor) => (editorRef.current = editor)}
-					toolbar={toolbarOptions}
+					toolbar={TINYMCE_TOOLBAR}
+					plugins={TINYMCE_PLUGINS}
+					quickbarsSelectionToolbar={TINYMCE_QUICKBARS_SELECTION_TOOLBAR}
+					quickbarsInsertToolbar={TINYMCE_QUICKBARS_INSERT_TOOLBAR}
 				/>
 			</div>
 		</div>

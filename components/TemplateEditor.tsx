@@ -10,6 +10,12 @@ import { QuestionTemplate, QuestionType } from '../types';
 import { getAvailableVariables, validateTemplate } from '../services/templates';
 import { Button, Select, Input, TinyMCEEditor } from './common';
 import { EditIcon } from './common/Icons';
+import {
+	TINYMCE_PLUGINS,
+	TINYMCE_TOOLBAR,
+	TINYMCE_QUICKBARS_SELECTION_TOOLBAR,
+	TINYMCE_QUICKBARS_INSERT_TOOLBAR,
+} from '../utils/tinymceConfig';
 
 interface TemplateEditorProps {
 	template?: QuestionTemplate;
@@ -195,6 +201,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 								editorRef.current = editor;
 							}}
 							height={500}
+							toolbar={TINYMCE_TOOLBAR}
+							plugins={TINYMCE_PLUGINS}
+							quickbarsSelectionToolbar={TINYMCE_QUICKBARS_SELECTION_TOOLBAR}
+							quickbarsInsertToolbar={TINYMCE_QUICKBARS_INSERT_TOOLBAR}
 						/>
 					</div>
 				</div>
