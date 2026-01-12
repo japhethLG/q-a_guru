@@ -19,12 +19,22 @@ export interface QaConfig {
 	difficulty: 'easy' | 'medium' | 'hard';
 	instructions: string;
 	apiKey?: string;
-	model: 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
+	model:
+		| 'gemini-2.5-pro'
+		| 'gemini-2.5-flash'
+		| 'gemini-2.5-flash-lite'
+		| 'gemini-3-pro-preview'
+		| 'gemini-3-flash-preview';
 	selectedTemplateId?: string;
 }
 
 export interface ChatConfig {
-	model: 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
+	model:
+		| 'gemini-2.5-pro'
+		| 'gemini-2.5-flash'
+		| 'gemini-2.5-flash-lite'
+		| 'gemini-3-pro-preview'
+		| 'gemini-3-flash-preview';
 }
 
 export interface ChatMessage {

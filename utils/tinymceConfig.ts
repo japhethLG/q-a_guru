@@ -37,9 +37,7 @@ export const TINYMCE_PLUGINS: string[] = [
 	'save',
 	'spellchecker',
 	'toc',
-	'footnotes',
 	'accordion',
-	'formatpainter',
 ];
 
 // Clean, organized toolbar without duplicates
@@ -52,5 +50,5 @@ export const TINYMCE_TOOLBAR =
 // Quickbars configuration - most used actions for context menus
 export const TINYMCE_QUICKBARS_SELECTION_TOOLBAR =
 	'bold italic | quicklink blockquote | forecolor backcolor';
-export const TINYMCE_QUICKBARS_INSERT_TOOLBAR = 'quickimage quicktable | hr pagebreak';
-
+export const TINYMCE_QUICKBARS_INSERT_TOOLBAR =
+	'quickimage quicktable | hr pagebreak';
