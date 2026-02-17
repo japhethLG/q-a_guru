@@ -1,18 +1,19 @@
 import { useState, useRef } from 'react';
-import { ChatMessage, ChatConfig, SelectionMetadata } from '../types';
 import {
-	getChatResponseStream,
-	getReflectionStream,
-	processFunctionCalls,
-} from '../services/gemini';
+	ChatMessage,
+	ChatConfig,
+	SelectionMetadata,
+	ScrollTarget,
+} from '../types';
+import { getChatResponseStream } from '../services/gemini';
+import { compactHistory } from '../services/contextManager';
+import { classifyError, delay } from '../services/errorClassifier';
+import { processStream, createStreamUpdateHandler } from './useStreamProcessor';
 import {
-	ChatStreamState,
-	ReflectionStreamState,
-	processChatStreamChunk,
-	processReflectionStreamChunk,
-	createMessageWithThinking,
-	createReflectionMessageWithThinking,
-} from '../utils/streamHelpers';
+	MAX_AGENT_TURNS,
+	handleFunctionCalls,
+	buildToolResultMessage,
+} from './useToolExecution';
 
 interface UseChatProps {
 	documentHtml: string;
@@ -21,7 +22,12 @@ interface UseChatProps {
 	qaConfig: any;
 	generationConfig: any;
 	chatConfig: ChatConfig;
-	onDocumentEdit: (newHtml: string, reason: string) => void;
+	onDocumentEdit: (
+		newHtml: string,
+		reason: string,
+		scrollTo?: ScrollTarget,
+		scrollTargets?: ScrollTarget[]
+	) => void;
 }
 
 interface UseChatReturn {
@@ -102,137 +108,27 @@ export const useChat = ({
 		setMessages((prev) => replacePlaceholder(prev, message));
 	};
 
-	/**
-	 * Process the chat stream and accumulate text/thinking
-	 */
+	const onStreamUpdate = createStreamUpdateHandler(setMessages);
+
+	/** Wrapper around processStream that uses the hook's abort controller */
 	const processChatStream = async (
 		responseStream: AsyncGenerator<any, void, unknown>
-	): Promise<{
-		fullResponse: any;
-		accumulatedText: string;
-		accumulatedThinking: string;
-		thinkingStartTime: number | undefined;
-	}> => {
-		let fullResponse = null;
-		const streamState: ChatStreamState = {
-			accumulatedText: '',
-			accumulatedThinking: '',
-			thinkingStartTime: undefined,
-			isFirstChunk: true,
-		};
-
-		for await (const chunk of await responseStream) {
-			// Check if aborted
-			if (abortControllerRef.current?.signal.aborted) {
-				break;
-			}
-
-			fullResponse = chunk; // Store the latest chunk
-
-			const { text, thinking, thinkingStartTime, updatedState } =
-				processChatStreamChunk(chunk, streamState);
-
-			// Update state reference
-			Object.assign(streamState, updatedState);
-
-			// Update messages if we have text or thinking
-			if (text !== null) {
-				setMessages((prev) => {
-					const updated = [...prev];
-					const lastMessage = updated[updated.length - 1];
-					updated[updated.length - 1] = createMessageWithThinking(
-						text,
-						streamState.accumulatedThinking,
-						streamState.thinkingStartTime,
-						lastMessage
-					);
-					return updated;
-				});
-			} else if (thinking) {
-				// Update thinking even if no text content yet
-				setMessages((prev) => {
-					const updated = [...prev];
-					if (updated.length > 0 && updated[updated.length - 1].role === 'model') {
-						const lastMessage = updated[updated.length - 1];
-						updated[updated.length - 1] = {
-							...lastMessage,
-							...(streamState.accumulatedThinking && {
-								thinking: streamState.accumulatedThinking,
-								...(streamState.thinkingStartTime && {
-									thinkingStartTime: streamState.thinkingStartTime,
-								}),
-							}),
-						};
-					}
-					return updated;
-				});
-			}
-		}
-
-		return {
-			fullResponse,
-			accumulatedText: streamState.accumulatedText,
-			accumulatedThinking: streamState.accumulatedThinking,
-			thinkingStartTime: streamState.thinkingStartTime,
-		};
+	) => {
+		return processStream(
+			responseStream,
+			abortControllerRef.current?.signal || null,
+			onStreamUpdate
+		);
 	};
 
 	/**
-	 * Process the reflection stream and update messages
-	 */
-	const processReflectionStream = async (
-		reflectionStream: AsyncGenerator<any, void, unknown>,
-		toolUsageMessage: string
-	): Promise<void> => {
-		const reflectionState: ReflectionStreamState = {
-			reflectionText: '',
-			reflectionThinking: '',
-			reflectionThinkingStartTime: undefined,
-		};
-
-		for await (const chunk of await reflectionStream) {
-			const { text, thinking, thinkingStartTime, updatedState } =
-				processReflectionStreamChunk(chunk, reflectionState);
-
-			// Update state reference
-			Object.assign(reflectionState, updatedState);
-
-			// Update messages if we have text or thinking
-			if (text !== null) {
-				setMessages((prev) => {
-					const updated = [...prev];
-					if (updated.length > 0) {
-						const currentMessage = updated[updated.length - 1];
-						updated[updated.length - 1] = createReflectionMessageWithThinking(
-							toolUsageMessage + text,
-							reflectionState.reflectionThinking,
-							reflectionState.reflectionThinkingStartTime,
-							currentMessage
-						);
-					}
-					return updated;
-				});
-			} else if (thinking) {
-				// Update thinking even if no text content yet
-				setMessages((prev) => {
-					const updated = [...prev];
-					if (updated.length > 0) {
-						const currentMessage = updated[updated.length - 1];
-						updated[updated.length - 1] = createReflectionMessageWithThinking(
-							currentMessage.content,
-							reflectionState.reflectionThinking,
-							reflectionState.reflectionThinkingStartTime,
-							currentMessage
-						);
-					}
-					return updated;
-				});
-			}
-		}
-	};
-
-	/**
-	 * Helper function to send a message with a specific messages array context
+	 * Send a message and run the agent loop.
+	 *
+	 * Implements a unified loop: LLM → tool calls → execute → feed result
+	 * back → repeat until the LLM responds with text only (no tool calls)
+	 * or MAX_AGENT_TURNS is reached.
+	 *
+	 * This fixes the stale-HTML bug by tracking `latestHtml` across iterations.
 	 */
 	const sendMessageWithContext = async (
 		messageToSend: string,
@@ -252,101 +148,217 @@ export const useChat = ({
 		// Set messages with user message and placeholder for model response
 		setMessages([...updatedMessages, { role: 'model', content: '' }]);
 
+		// Compact history before sending to the API (UI still shows all messages)
+		let loopHistory = compactHistory(contextMessages);
+		let latestHtml = documentHtml;
+		let currentMessage = messageToSend;
+		let iteration = 0;
+
 		try {
-			const responseStream = getChatResponseStream(
-				contextMessages,
-				messageToSend,
-				documentsContent,
-				documentHtml,
-				selectedText,
-				qaConfig.apiKey,
-				chatConfig.model,
-				generationConfig || qaConfig,
-				abortControllerRef.current.signal
-			);
+			while (iteration < MAX_AGENT_TURNS) {
+				iteration++;
 
-			// Process the chat stream
-			const { fullResponse, accumulatedText } =
-				await processChatStream(responseStream);
+				// --- Call LLM ---
+				const responseStream = getChatResponseStream(
+					loopHistory,
+					currentMessage,
+					documentsContent,
+					latestHtml,
+					selectedText,
+					qaConfig.apiKey,
+					chatConfig.model,
+					generationConfig || qaConfig,
+					abortControllerRef.current!.signal
+				);
 
-			// Process the final response for function calls
-			if (!fullResponse) {
-				// Remove the placeholder message if no response was received
-				removePlaceholderMessage();
-				return;
-			}
+				const streamResult = await processChatStream(responseStream);
 
-			const result = processFunctionCalls({
-				functionCalls: (fullResponse as any).functionCalls,
-				documentHtml,
-				messages: updatedMessages,
-				userMessage: messageToSend,
-				accumulatedText,
-			});
+				if (!streamResult.fullResponse) {
+					removePlaceholderMessage();
+					break;
+				}
 
-			if (result.errorMessage) {
-				setMessages((prev) => [
-					...prev,
-					{ role: 'model', content: result.errorMessage as string },
-				]);
-				setIsLoading(false);
-				return;
-			}
+				// --- Process tool calls ---
+				const result = handleFunctionCalls(streamResult, latestHtml);
 
-			if (result.newHtml !== undefined && result.newHtml !== null) {
-				// Execute the edit
-				onDocumentEdit(result.newHtml, messageToSend);
+				// No function calls — normal text response, we're done
+				if (!result.newHtml && !result.toolResponse && result.success) {
+					break;
+				}
 
-				// Show tool usage and then stream reflection
-				try {
-					const toolUsageMessage =
-						result.toolUsageMessage || '**Tool used: edit_document**\n\n';
+				// --- Apply successful edit ---
+				if (result.success && result.newHtml !== undefined) {
+					onDocumentEdit(
+						result.newHtml,
+						messageToSend,
+						result.scrollTo,
+						result.scrollTargets
+					);
+					latestHtml = result.newHtml; // Fix stale HTML bug
+				}
+
+				// --- Check if this is a terminal tool result (successful edit with no more work needed) ---
+				// For a successful edit, show the result and let the loop continue
+				// so the LLM can decide if it needs to do more
+				if (
+					result.success &&
+					result.newHtml !== undefined &&
+					!result.toolResponse
+				) {
+					// Show success in chat but continue loop so LLM can respond
 					setMessages((prev) => {
 						const updated = [...prev];
 						updated[updated.length - 1] = {
 							role: 'model',
-							content: toolUsageMessage,
+							content:
+								result.toolUsageMessage || '✅ *Document updated successfully.*',
 						};
 						return updated;
 					});
-
-					if (result.reflection) {
-						const reflectionStream = getReflectionStream(
-							result.reflection.history,
-							result.reflection.toolResultMessage,
-							qaConfig.apiKey,
-							chatConfig.model,
-							abortControllerRef.current.signal
-						);
-
-						await processReflectionStream(reflectionStream, toolUsageMessage);
-						setIsStreamingText(false);
-					}
-				} catch (error) {
-					console.error('Reflection error:', error);
-					setIsStreamingText(false);
+					break;
 				}
-			} else {
-				// No function calls, turn off streaming
-				setIsStreamingText(false);
+
+				// --- Build tool result and feed back to LLM ---
+				const toolResultMsg = buildToolResultMessage(
+					result,
+					iteration,
+					MAX_AGENT_TURNS
+				);
+
+				// Show agent working status
+				if (iteration < MAX_AGENT_TURNS) {
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = {
+							role: 'model',
+							content: `🔄 *Working... (step ${iteration}/${MAX_AGENT_TURNS})*`,
+						};
+						return updated;
+					});
+				}
+
+				// Advance the conversation: add AI response + tool result as next turn
+				loopHistory = [
+					...loopHistory,
+					{ role: 'user', content: currentMessage },
+					{
+						role: 'model',
+						content: streamResult.accumulatedText || 'I processed the tool call.',
+					},
+				];
+				currentMessage = toolResultMsg;
+
+				// Reset placeholder for the next streaming response
+				setMessages((prev) => {
+					const updated = [...prev];
+					updated[updated.length - 1] = { role: 'model', content: '' };
+					return updated;
+				});
+			}
+
+			// Max turns reached — show status (Continue button handled by UI)
+			if (iteration >= MAX_AGENT_TURNS) {
+				console.warn(
+					`[useChat] Agent loop reached max turns (${MAX_AGENT_TURNS}).`
+				);
+				setMessages((prev) => {
+					const updated = [...prev];
+					const last = updated[updated.length - 1];
+					if (last.role === 'model' && last.content === '') {
+						updated[updated.length - 1] = {
+							role: 'model',
+							content: `⚠️ *Reached maximum steps (${MAX_AGENT_TURNS}). You can ask me to continue if there's more work to do.*`,
+						};
+					}
+					return updated;
+				});
 			}
 		} catch (error) {
-			// Check if it was an abort error
 			if (error instanceof Error && error.name === 'AbortError') {
 				console.log('Chat aborted by user');
-				// Remove the placeholder message on abort
 				removePlaceholderMessage();
-			} else {
-				console.error('Chat error:', error);
-				const errorMessage: ChatMessage = {
-					role: 'model',
-					content: "Sorry, I couldn't get a response. Please try again.",
-				};
-				// Replace the placeholder message with the error message instead of appending
-				replacePlaceholderMessage(errorMessage);
+				return;
 			}
+
+			const classified = classifyError(error);
+			console.error(`[useChat] ${classified.type} error:`, error);
+
+			// Auto-retry for transient errors
+			if (classified.retryable && classified.retryDelayMs !== undefined) {
+				// Show retry message to user
+				replacePlaceholderMessage({
+					role: 'model',
+					content: classified.userMessage,
+				});
+
+				try {
+					if (classified.retryDelayMs > 0) {
+						await delay(classified.retryDelayMs);
+					}
+
+					// For context overflow, aggressively prune before retry
+					const retryHistory =
+						classified.type === 'context_overflow'
+							? compactHistory(contextMessages).slice(-6) // Keep only last 3 turns
+							: compactHistory(contextMessages);
+
+					abortControllerRef.current = new AbortController();
+
+					const retryStream = getChatResponseStream(
+						retryHistory,
+						messageToSend,
+						documentsContent,
+						latestHtml, // Use latest HTML, not stale documentHtml
+						selectedText,
+						qaConfig.apiKey,
+						chatConfig.model,
+						generationConfig || qaConfig,
+						abortControllerRef.current.signal
+					);
+
+					// Replace with a fresh placeholder for retry
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = { role: 'model', content: '' };
+						return updated;
+					});
+
+					const retryResult = await processChatStream(retryStream);
+					if (retryResult.fullResponse) {
+						const result = handleFunctionCalls(retryResult, latestHtml);
+
+						if (result.success && result.newHtml !== undefined) {
+							onDocumentEdit(
+								result.newHtml,
+								messageToSend,
+								result.scrollTo,
+								result.scrollTargets
+							);
+							setMessages((prev) => {
+								const updated = [...prev];
+								updated[updated.length - 1] = {
+									role: 'model',
+									content:
+										result.toolUsageMessage || '✅ *Document updated successfully.*',
+								};
+								return updated;
+							});
+						}
+						// If no edit, the streamed text is already shown
+					}
+					return;
+				} catch (retryError) {
+					console.error('[useChat] Retry also failed:', retryError);
+					// Fall through to show error
+				}
+			}
+
+			// Non-retryable or retry failed — show classified error
+			replacePlaceholderMessage({
+				role: 'model',
+				content: classified.userMessage,
+			});
 		} finally {
-			// Only turn off loading after everything is complete (both AI calls + tool execution)
 			setIsLoading(false);
 			setIsStreamingText(false);
 			abortControllerRef.current = null;

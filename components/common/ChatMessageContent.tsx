@@ -70,7 +70,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
 					showButton ? 'visible opacity-100' : 'invisible opacity-0'
 				} ${
 					copied
-						? 'bg-green-600 hover:bg-green-700 text-white border-0'
+						? 'border-0 bg-green-600 text-white hover:bg-green-700'
 						: 'border border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700'
 				}`}
 				title={copied ? 'Copied!' : 'Copy code'}
@@ -87,11 +87,69 @@ interface ChatMessageContentProps {
 	onHighlight?: (content: string | null) => void;
 }
 
+/**
+ * Pre-process chat message content to handle raw HTML blocks.
+ *
+ * When the AI includes raw HTML (e.g., document content it plans to insert),
+ * the ReactMarkdown + rehypeRaw pipeline tries to render the tags inline,
+ * producing garbled output. This preprocessor detects blocks of consecutive
+ * HTML lines and wraps them in a collapsible code block instead.
+ */
+const HTML_LINE_RE =
+	/^[ \t]*<\/?(p|div|br|ul|ol|li|table|tr|td|th|h[1-6]|strong|em|i|b|span|section|header|footer|article|blockquote)\b/i;
+
+const preprocessContent = (content: string): string => {
+	const lines = content.split('\n');
+	const result: string[] = [];
+	let htmlBlock: string[] = [];
+
+	const flushHtmlBlock = () => {
+		if (htmlBlock.length >= 2) {
+			// Wrap the HTML block in a collapsible details section with code fence
+			result.push('');
+			result.push('<details>');
+			result.push(
+				`<summary>📄 HTML Content (${htmlBlock.length} lines)</summary>`
+			);
+			result.push('');
+			result.push('```html');
+			result.push(...htmlBlock);
+			result.push('```');
+			result.push('');
+			result.push('</details>');
+			result.push('');
+		} else {
+			// Single HTML line — keep as-is (probably inline usage)
+			result.push(...htmlBlock);
+		}
+		htmlBlock = [];
+	};
+
+	for (const line of lines) {
+		if (HTML_LINE_RE.test(line)) {
+			htmlBlock.push(line);
+		} else {
+			if (htmlBlock.length > 0) {
+				flushHtmlBlock();
+			}
+			result.push(line);
+		}
+	}
+
+	// Flush any remaining accumulated HTML block
+	if (htmlBlock.length > 0) {
+		flushHtmlBlock();
+	}
+
+	return result.join('\n');
+};
+
 export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 	content,
 	className = '',
 	onHighlight,
 }) => {
+	const processedContent = preprocessContent(content);
 	return (
 		<div className={`markdown-content w-full ${className}`}>
 			<style>{`
@@ -295,7 +353,7 @@ export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 					),
 				}}
 			>
-				{content}
+				{processedContent}
 			</ReactMarkdown>
 		</div>
 	);

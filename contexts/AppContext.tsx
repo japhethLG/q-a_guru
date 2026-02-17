@@ -6,7 +6,10 @@ import React, {
 	ReactNode,
 } from 'react';
 import { QaConfig, DocumentVersion, SelectionMetadata } from '../types';
-import { getActiveTemplate, getTemplateById } from '../services/templateStorage';
+import {
+	getActiveTemplate,
+	getTemplateById,
+} from '../services/templateStorage';
 
 interface AppContextType {
 	// Files state
@@ -25,7 +28,9 @@ interface AppContextType {
 	editorContent: string;
 	setEditorContent: React.Dispatch<React.SetStateAction<string>>;
 	selectedText: SelectionMetadata | null;
-	setSelectedText: React.Dispatch<React.SetStateAction<SelectionMetadata | null>>;
+	setSelectedText: React.Dispatch<
+		React.SetStateAction<SelectionMetadata | null>
+	>;
 	isEditorDirty: boolean;
 	setIsEditorDirty: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -75,7 +80,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		type: 'mixed',
 		difficulty: 'medium',
 		instructions: '',
-		model: 'gemini-2.5-flash-lite',
+		model: 'gemini-3-flash-preview',
 	});
 	const [generationConfig, setGenerationConfig] = useState<QaConfig | null>(
 		null
@@ -83,7 +88,9 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 
 	// Editor state
 	const [editorContent, setEditorContent] = useState<string>('');
-	const [selectedText, setSelectedText] = useState<SelectionMetadata | null>(null);
+	const [selectedText, setSelectedText] = useState<SelectionMetadata | null>(
+		null
+	);
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
 
 	// Version history state

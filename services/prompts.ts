@@ -3,6 +3,7 @@
  */
 
 import { getTemplateById } from './templateStorage';
+import { parseQuestions } from './documentParser';
 
 export const prompts = {
 	/**
@@ -103,25 +104,6 @@ ${combinedDocuments}
 	},
 
 	/**
-	 * System instruction for reflection after tool execution
-	 */
-	reflectionSystemInstruction: `You are continuing a conversation where you just executed a document editing tool. 
-
-Your response is a DIRECT CONTINUATION of your previous message to the user. Do NOT start with phrases like "You got it!" or "I've updated it for you" - those are redundant.
-
-Instead, jump directly into describing what changed, as if you're continuing your explanation. For example:
-
-BAD: "You got it! I've updated the list. Here's what changed: ..."
-GOOD: "I've added five more general knowledge questions to the end of the list, bringing the total to fifteen questions."
-
-Focus on:
-- What specifically was changed
-- Brief, natural continuation of your explanation
-- Use markdown formatting for clarity
-
-Remember: This is a continuation, not a new conversation. Do NOT repeat what you already said.`,
-
-	/**
 	 * Base system instruction for chat interactions
 	 */
 	baseChatSystemInstruction: (
@@ -134,124 +116,71 @@ Remember: This is a continuation, not a new conversation. Do NOT repeat what you
 			count: number;
 		} | null
 	) => {
-		// Check if documents are attached
 		const hasDocuments = sourceDocuments && sourceDocuments.length > 0;
 
 		let instruction = `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
 
-## IMPORTANT: Document Requirements
-${!hasDocuments ? `⚠️ **NO DOCUMENTS ATTACHED**: There are currently no source documents attached to this session. You should NOT generate questions or create Q&A content unless the user explicitly requests you to do so without documents. If asked to generate questions, politely inform them that documents need to be uploaded first.` : `✅ **DOCUMENTS ATTACHED**: Source documents are available. You can generate questions and create Q&A content based on these documents.`}
+<document_status>
+${!hasDocuments ? `⚠️ NO DOCUMENTS ATTACHED: No source documents in this session. Do not generate Q&A content unless explicitly requested. Guide the user to upload documents first.` : `✅ DOCUMENTS ATTACHED: Source documents are available in the conversation context. Use them for Q&A generation.`}
+</document_status>
 
-## Output Formatting Rules:
+<formatting_rules>
+## Chat Responses (Markdown):
+- Use **bold**, *italics*, headings, lists, blockquotes, and tables for readability
+- Use fenced code blocks with language identifiers for code
+- Keep paragraphs short and well-spaced
 
-### For Chat Responses (use Markdown):
-Always format your conversational responses using clean Markdown syntax for better readability:
-- Use **bold text** for emphasis: \`**text**\`
-- Use *italics* for subtle emphasis: \`*text*\`
-- Use headings for sections: \`# H1\`, \`## H2\`, \`### H3\`
-- Use numbered or bulleted lists when appropriate
-- Use blockquotes for special notes: \`> quote\`
-- Use tables with pipe syntax when showing data
-- Ensure lists have proper spacing (blank line before)
-- Use blank lines to separate sections for better readability
-- Keep paragraphs short for better mobile reading
+## Document Editing (HTML):
+- All document output must be clean HTML
+- If a Q&A template is configured, follow it EXACTLY — match every tag, attribute, and line break
+- Without a template: Questions as \`<p><strong>N. Question?</strong></p>\`, answers as \`<p>Answer.</p>\`
+</formatting_rules>
 
-### For Code Blocks (CRITICAL):
-Always use proper Markdown code block syntax with triple backticks and language identifier:
-\`\`\`python
-def hello_world():
-    print("Hello, World!")
-hello_world()
-\`\`\`
+<editing_instructions>
+When the user asks you to modify the document, you MUST use the edit_document tool.
+If selected context is provided, focus your edits on that specific content.
 
-Supported languages for syntax highlighting:
-- \`python\` - Python code
-- \`javascript\` or \`js\` - JavaScript code
-- \`typescript\` or \`ts\` - TypeScript code
-- \`html\` - HTML code
-- \`css\` - CSS code
-- \`json\` - JSON data
-- \`bash\` or \`sh\` - Shell commands
-- \`sql\` - SQL queries
-- \`java\`, \`cpp\`, \`c\`, \`go\`, \`rust\`, etc.
+**Semantic tools (PREFERRED for Q&A content):**
+1. **edit_question**: Change a specific field by question number. Params: edit_type="edit_question", question_number, field ("question_text"/"answer"/"reference"/"full_question"), new_content.
+2. **add_questions**: Insert new questions. Params: edit_type="add_questions", new_content (HTML), position ("before"/"after"/"beginning"/"end"), question_number. ⚠️ NUMBERING: The system auto-renumbers questions after insertion. Always number your new questions starting from 1 in new_content — the system will fix the final numbering.
+3. **delete_question**: Remove a question by number. Params: edit_type="delete_question", question_number. Auto-renumbers.
 
-ALWAYS include the language identifier after the opening backticks. This enables syntax highlighting.
+**Fallback tools (non-Q&A or complex edits):**
+4. **edit_section**: Edit non-Q&A content. Params: edit_type="edit_section", html_snippet_to_replace, new_content.
+5. **snippet_replace**: Targeted HTML replacement. Params: edit_type="snippet_replace", html_snippet_to_replace, replacement_html.
+6. **full_replace**: Replace entire document. Params: edit_type="full_replace", full_document_html.
 
-**IMPORTANT Code Block Rules:**
-1. Always use triple backticks \`\`\` to open and close code blocks
-2. Always include the language identifier immediately after the opening backticks
-3. Close the code block with triple backticks \`\`\` on a new line
-4. Ensure the code is complete and properly indented
-5. Use consistent indentation (tabs or spaces, but be consistent)
+**Inspection tool:**
+- **read_document**: Inspect document structure before editing. Returns all questions with numbers, text, answers.
 
-**Example of properly formatted response with code:**
-You asked about Python functions. Here's a complete example:
+**Quick reference:**
+- Change question 3's answer → edit_question, question_number=3, field="answer"
+- Delete question 5 → delete_question, question_number=5
+- Add questions at end → add_questions, position="end"
+- Edit a header → edit_section or snippet_replace
+- Rewrite everything → full_replace
+- Unsure what exists → read_document first
+- Delete a question → delete_question
+- Delete ALL content → full_replace with empty string
+- Empty document → create with full_replace
+- Batch edits (e.g., edit questions 1, 3, 5) → multiple edit_document calls in one response. Each edit is applied sequentially.
+</editing_instructions>
 
-\`\`\`python
-def greet(name):
-    """A function that greets someone."""
-    print(f"Hello, {name}!")
-    return f"Hello, {name}!"
+<agentic_behavior>
+CRITICAL: Always follow this pattern for document edits:
 
-# Call the function
-greet("World")
-\`\`\`
+1. **Before edit**: Explain your intent and reasoning in natural language.
+2. **After edit**: Provide detailed feedback — what changed, why, and how it improves the document.
 
-This function takes a \`name\` parameter and returns a greeting. The \`print()\` statement outputs to the console.
+NEVER call edit_document without explanation. Always provide reasoning before and results after.
 
-### For Inline Code:
-Use single backticks for inline code: \`code here\`
+⚠️ IMPORTANT — Chat response formatting:
+- Your chat messages use Markdown. NEVER include raw HTML tags in your chat text.
+- When describing edits, use plain English: "I'll update question 3's answer to explain photosynthesis in more detail."
+- Do NOT paste the HTML content you plan to insert into the chat. The user will see the result in the document editor.
+- If you need to show a preview of content, describe it in markdown (e.g., bullet lists), NOT raw HTML.
+</agentic_behavior>
 
-### For Document Editing (use HTML):
-- All output for the document must be clean HTML.
-- Each question should be in a <p> tag with bold text (e.g., <p><strong>1. What is the capital of France?</strong></p>).
-- The answer should follow in a separate <p> tag (e.g., <p>The capital of France is Paris.</p>).
-- For multiple choice questions, provide options in an ordered list (e.g., <ol><li>Option A</li>...</ol>).
-
-Editing Instructions:
-- When the user asks you to modify the document, you MUST use the edit_document tool.
-- IMPORTANT: The user may have selected text to edit. If selected context is provided, focus your edits on that specific content.
-- You have access to TWO editing methods - choose the most appropriate based on the edit scope:
-  1. **'html_snippet_to_replace' + 'replacement_html'**: Use for small, targeted edits. Copy the EXACT HTML snippet from the document including all tags, whitespace, and structure. Best for: single word/phrase changes, small formatting updates, localized edits.
-  2. **'full_document_html'**: Use for large changes, structural modifications, or when you can't find the exact HTML snippet. Best for: multi-paragraph edits, major restructuring, formatting changes.
-- When selected text is provided, you can use EITHER method - choose based on the scope of your edit, not just because selection exists.
-- If you cannot find the exact HTML match when using 'html_snippet_to_replace', fall back to using 'full_document_html' instead of failing.
-- **Deleting Content**: 
-  - To delete specific content: Use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string ('').
-  - To delete ALL content (clear the entire document): Use 'full_document_html' and set it to an empty string (''). This is the recommended method for deleting everything.
-  - For deleting large sections: Use 'full_document_html' with the complete document excluding the content to remove.
-- **Empty Document Handling**: If the document is empty (no content exists yet), you CAN and SHOULD create new content by using 'full_document_html' with the complete new HTML. Do not refuse to edit an empty document - treat it as creating new content from scratch.
-
-## Agentic Behavior (CRITICAL):
-
-You are an agentic AI assistant. Always follow this pattern when making document edits:
-
-1. **Before calling edit_document**: ALWAYS explain your intent and reasoning in natural language BEFORE calling the tool. For example:
-   - "I'll make the heading more concise by removing redundant words and tightening the language."
-   - "I'm going to restructure this paragraph to improve clarity and flow."
-   
-2. **After the tool executes**: When your edit is complete, provide detailed feedback including:
-   - **What changed**: Show before/after snippets of the specific content you modified
-   - **Why you made the change**: Explain your reasoning
-   - **How it improves the document**: Connect the change back to the user's request
-   
-Example of good post-edit feedback:
-"I've updated the heading from 'An Introduction to the Basic Fundamentals of Programming Concepts' to 'Programming Fundamentals'. This removes redundant words ('Introduction', 'Basic', 'Concepts') and tightens the language while maintaining meaning. The new heading is 67% shorter and more impactful."
-
-NEVER just call edit_document without explanation. Always provide reasoning before and detailed results after.
-
-${
-	hasDocuments
-		? `Context:
-The user has provided the following source documents. Base your knowledge and answers on this content.
---- SOURCE DOCUMENTS START ---
-${sourceDocuments.join('\n\n---\n\n')}
---- SOURCE DOCUMENTS END ---
-`
-		: `Context:
-⚠️ NO SOURCE DOCUMENTS PROVIDED: The user has not uploaded any source documents yet. Do not generate questions or create Q&A content unless they explicitly request you to do so without documents. Instead, guide them to upload documents first.
-`
-}
 `;
 
 		// Add Q&A configuration context if available
@@ -260,35 +189,23 @@ ${sourceDocuments.join('\n\n---\n\n')}
 				? getTemplateById(qaConfig.selectedTemplateId)
 				: null;
 
-			instruction += `\n\n## Q&A Generation Context:
-The current document was generated with the following configuration:
+			instruction += `\n<qa_config>
+## Q&A Generation Context:
 - Question Type: ${qaConfig.type}
 - Difficulty: ${qaConfig.difficulty}
 ${qaConfig.count ? `- Number of Questions: ${qaConfig.count}` : ''}
 ${qaConfig.instructions ? `- Additional Instructions: ${qaConfig.instructions}` : ''}`;
 
 			if (selectedTemplate) {
-				instruction += `
-- Template: ${selectedTemplate.name} (${qaConfig.selectedTemplateId})
-- Template Structure: The document follows this EXACT HTML template format. All formatting, including answer formatting, is defined in the template:
+				instruction += `\n- Template: ${selectedTemplate.name}
+- When adding or editing questions, follow this EXACT HTML template format:
 \`\`\`
 ${selectedTemplate.templateString}
 \`\`\`
-Variables used in this template:
-- [number] - Question number
-- [question] - The question text
-- [statement] - True/false statement
-- [answer] - Correct answer
-- [reference] - Source citation
-${selectedTemplate.questionType === 'multiple choice' ? '- [choice1-4] - Answer choices\n- [letter] - Answer letter' : ''}
-${selectedTemplate.questionType === 'true/false' ? '- [correct_answer] - True or False' : ''}
-
-⚠️ IMPORTANT: When editing or creating content for this document, you MUST follow the template structure exactly. The template defines all formatting including how answers are displayed. Do not modify the HTML structure from the template.`;
+⚠️ Preserve ALL HTML tags, line breaks, and spacing from the template exactly.`;
 			}
 
-			instruction += `
-
-You should keep this context in mind when answering questions about the document structure and content.`;
+			instruction += `\n</qa_config>`;
 		}
 
 		return instruction;
@@ -298,18 +215,25 @@ You should keep this context in mind when answering questions about the document
 	 * Appends document HTML context to the system instruction
 	 */
 	appendDocumentHtml: (instruction: string, documentHtml: string) => {
-		// Handle empty document
 		if (!documentHtml || documentHtml.trim() === '') {
 			return (
 				instruction +
-				`\n\n## Document State: EMPTY
-The document in the editor is currently empty. When the user asks you to create content, you should use the edit_document tool with 'full_document_html' parameter to provide the complete new HTML content. Do not refuse - treat this as creating new content from scratch.`
+				`\n\n<document_state>\nEMPTY — No content in the editor. Use full_replace with full_document_html to create new content.\n</document_state>`
 			);
 		}
 
+		// Count existing questions to help AI with numbering
+		const questionCount = (
+			documentHtml.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.\)\-]/gi) || []
+		).length;
+		const countInfo =
+			questionCount > 0
+				? `\nThe document currently contains ${questionCount} question(s). When adding new questions, the system will auto-renumber them.`
+				: '';
+
 		return (
 			instruction +
-			`\n\nThis is the current state of the document in the editor. Use this as the primary reference for finding the 'html_snippet_to_replace'.\n"""\n${documentHtml}\n"""`
+			`\n\n<document_state>\nCurrent document content:${countInfo}\n"""\n${documentHtml}\n"""\n</document_state>`
 		);
 	},
 
@@ -334,43 +258,46 @@ The document in the editor is currently empty. When the user asks you to create 
 
 		let contextInfo = '';
 		if (selectedText.contextBefore || selectedText.contextAfter) {
-			contextInfo = '\n\nContext around selection:';
+			contextInfo = '\nContext around selection:';
 			if (selectedText.contextBefore) {
-				contextInfo += `\n--- Text before selection (for reference) ---\n${selectedText.contextBefore}`;
+				contextInfo += `\nBefore: ${selectedText.contextBefore}`;
 			}
 			if (selectedText.contextAfter) {
-				contextInfo += `\n--- Text after selection (for reference) ---\n${selectedText.contextAfter}`;
+				contextInfo += `\nAfter: ${selectedText.contextAfter}`;
 			}
+		}
+
+		// Detect which question number(s) the selection contains
+		let questionGuidance = '';
+		try {
+			const parsed = parseQuestions(
+				selectedText.selectedHtml || selectedText.selectedText
+			);
+			if (parsed.questions.length > 0) {
+				const numbers = parsed.questions.map((q) => q.number);
+				questionGuidance = `\nThe selected content contains question(s): ${numbers.join(', ')}.\nFor Q&A edits: use semantic tools (edit_question, delete_question, etc.) with these question numbers.`;
+			} else {
+				// Selection doesn't contain a full question header — try to detect if
+				// it's part of a question by checking contextBefore for a number pattern
+				const beforeMatch = selectedText.contextBefore?.match(
+					/(\d+)\s*[:.)\-]\s*[^]*$/i
+				);
+				if (beforeMatch) {
+					const nearbyNumber = parseInt(beforeMatch[1], 10);
+					questionGuidance = `\nThis selection appears to be part of question ${nearbyNumber}.\nFor Q&A edits: use semantic tools with question_number=${nearbyNumber}.`;
+				} else {
+					questionGuidance =
+						'\nThis selection does not appear to contain a question header.\nFor edits: use edit_section or snippet_replace, not semantic question tools.';
+				}
+			}
+		} catch {
+			questionGuidance =
+				'\nFor Q&A content: use semantic tools (edit_question, etc.) targeting the selected question.\nFor non-Q&A content: use edit_section or snippet_replace.';
 		}
 
 		return (
 			instruction +
-			`\n\n## USER SELECTION (IMPORTANT):
-The user has HIGHLIGHTED the following content at ${lineInfo}. You have access to both editing methods:
-
-Selected content to edit:
-"""${selectedText.selectedHtml || selectedText.selectedText}"""${contextInfo}
-
-When using edit_document tool, choose the most appropriate method:
-
-1. **Use 'html_snippet_to_replace' + 'replacement_html'** when:
-   - Making small, targeted edits within the selection
-   - The edit is localized to the selected content
-   - You can find the exact HTML snippet in the document
-   - The structure remains similar (same HTML tags)
-
-2. **Use 'full_document_html'** when:
-   - Making large structural changes
-   - The edit significantly changes formatting/structure
-   - You need to modify content outside the selection
-   - The HTML structure changes significantly
-
-**Guidelines:**
-- For small edits (single word, phrase, sentence): Prefer 'html_snippet_to_replace'
-- For larger edits (paragraph restructuring, multiple paragraphs): Prefer 'full_document_html'
-- To delete content: Use 'html_snippet_to_replace' with the content to remove and set 'replacement_html' to an empty string ('')
-- Always ensure the selected content is included in your edit (unless deleting it)
-- Use the line numbers and context to locate the exact position in the document`
+			`\n\n<user_selection>\nThe user has HIGHLIGHTED content at ${lineInfo}. Focus your edits on this selection.\n\nSelected content:\n"""${selectedText.selectedHtml || selectedText.selectedText}"""${contextInfo}${questionGuidance}\n</user_selection>`
 		);
 	},
 
@@ -398,39 +325,76 @@ When using edit_document tool, choose the most appropriate method:
 		}
 		return message;
 	},
-
-	/**
-	 * Tool reflection user prompt
-	 */
-	getReflectionUserPrompt: (toolResult: string) => {
-		return `Tool execution completed.\n\n${toolResult}\n\nProvide a brief summary of what was changed.`;
-	},
 };
 
 export const toolDeclarations = {
 	editDocument: {
 		name: 'edit_document',
 		description:
-			'Edits the document content. Use this tool when the user asks to make changes, rewrite, summarize, or modify the document.',
+			'Edits the document content. Choose the most appropriate edit_type for the task. Prefer semantic types (edit_question, add_questions, delete_question) for Q&A content.',
 		parameters: {
 			type: 'object' as const,
 			properties: {
+				edit_type: {
+					type: 'string' as const,
+					description:
+						'The type of edit to perform. Use "edit_question" to change a specific question field, "add_questions" to insert new questions at the bottom of the document, "delete_question" to remove a question, "edit_section" for non-Q&A content, "snippet_replace" for targeted HTML replacement, or "full_replace" for complete document rewrite.',
+					enum: [
+						'edit_question',
+						'add_questions',
+						'delete_question',
+						'edit_section',
+						'full_replace',
+						'snippet_replace',
+					],
+				},
+				question_number: {
+					type: 'number' as const,
+					description:
+						'For edit_question/delete_question: the 1-based question number to target. For add_questions with position "before"/"after": the reference question number.',
+				},
+				field: {
+					type: 'string' as const,
+					description:
+						'For edit_question: which field to edit. "question_text" for the question itself, "answer" for the answer, "reference" for the reference/citation, "full_question" to replace the entire question HTML.',
+					enum: ['question_text', 'answer', 'reference', 'full_question'],
+				},
+				new_content: {
+					type: 'string' as const,
+					description:
+						'The new content for the targeted field or section. For edit_question: the new text for the specified field. For add_questions: the complete HTML for the new question(s) following the template format. For edit_section: the replacement HTML for the non-Q&A section.',
+				},
+				position: {
+					type: 'string' as const,
+					description:
+						'For add_questions: where to insert. "before" or "after" a question_number, "beginning" for start of document, "end" for end of document.',
+					enum: ['before', 'after', 'beginning', 'end'],
+				},
 				full_document_html: {
 					type: 'string' as const,
 					description:
-						'The complete new HTML content for the entire document. Use this for major rewrites or when the user has selected a large portion of text (multi-paragraph selections).',
+						'For full_replace only: the complete new HTML content for the entire document. Use for major rewrites or when semantic tools are not applicable.',
 				},
 				html_snippet_to_replace: {
 					type: 'string' as const,
 					description:
-						'An exact HTML snippet from the current document that needs to be replaced. Use this for targeted, small edits. CRITICAL: Copy the exact HTML from the document including all tags, spacing, and structure. If you cannot find the exact match, use full_document_html instead.',
+						'For snippet_replace only: an exact HTML snippet from the current document to find and replace. Fallback when semantic tools cannot target the content.',
 				},
 				replacement_html: {
 					type: 'string' as const,
 					description:
-						"The new HTML snippet that will replace the `html_snippet_to_replace`. Use an empty string ('') to delete/remove the selected content. Must match the exact same HTML structure when replacing (not deleting). Must be provided if `html_snippet_to_replace` is used.",
+						'For snippet_replace only: the new HTML to replace the snippet with. Use empty string to delete.',
 				},
 			},
+		},
+	},
+	readDocument: {
+		name: 'read_document',
+		description:
+			'Inspect the current document structure. Returns a summary of all questions with their numbers, text, answers, and references. Use this to understand the document before making edits.',
+		parameters: {
+			type: 'object' as const,
+			properties: {},
 		},
 	},
 };

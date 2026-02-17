@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEInstance } from 'tinymce';
-import { SelectionMetadata } from '../../types';
+import { SelectionMetadata, ScrollTarget } from '../../types';
 
 interface TinyMCEEditorProps {
 	value: string;
@@ -18,6 +18,8 @@ interface TinyMCEEditorProps {
 	statusbar?: boolean;
 	quickbarsSelectionToolbar?: string;
 	quickbarsInsertToolbar?: string;
+	scrollTargets?: ScrollTarget[];
+	onScrollHandled?: () => void;
 }
 
 export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
@@ -47,12 +49,14 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 		'wordcount',
 	],
 	toolbar = 'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor | subscript superscript | blockquote code | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | removeformat',
-	contentStyle = 'body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; color: #d1d5db; background-color: #374151; } .mce-content-body { background-color: #374151 !important; color: #d1d5db !important; } body::-webkit-scrollbar { width: 6px; height: 6px; } body::-webkit-scrollbar-track { background: transparent; } body::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; } body::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }',
+	contentStyle = 'body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; color: #d1d5db; background-color: #374151; } .mce-content-body { background-color: #374151 !important; color: #d1d5db !important; } .flash-highlight { animation: flash-bg 2s ease-out; } @keyframes flash-bg { 0% { background-color: rgba(34, 211, 238, 0.4); } 100% { background-color: transparent; } } body::-webkit-scrollbar { width: 6px; height: 6px; } body::-webkit-scrollbar-track { background: transparent; } body::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; } body::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }',
 	resize = true,
 	branding = false,
 	statusbar = false,
 	quickbarsSelectionToolbar,
 	quickbarsInsertToolbar,
+	scrollTargets = [],
+	onScrollHandled,
 }) => {
 	const editorRef = useRef<TinyMCEInstance | null>(null);
 	const isUpdatingContentRef = useRef(false);
@@ -82,7 +86,7 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 
 			// Get the full document content as plain text for line number calculation
 			const fullContent = editor.getContent({ format: 'text' });
-			
+
 			// Get selection range
 			const range = editor.selection.getRng();
 			if (!range) {
@@ -95,7 +99,7 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 			// We'll use the selected text position in the full content
 			const selectedTextNormalized = selectedText.trim();
 			const startIndex = fullContent.indexOf(selectedTextNormalized);
-			
+
 			// If we can't find exact match, try to find approximate position
 			let startOffset = startIndex;
 			let endOffset = startIndex + selectedTextNormalized.length;
@@ -148,10 +152,11 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 				const selectedHtml = editor.selection.getContent({ format: 'html' });
 				const fullContent = editor.getContent({ format: 'text' });
 				const startIndex = fullContent.indexOf(selectedText.trim());
-				const startLine = startIndex >= 0 
-					? fullContent.substring(0, startIndex).split('\n').length 
-					: 1;
-				
+				const startLine =
+					startIndex >= 0
+						? fullContent.substring(0, startIndex).split('\n').length
+						: 1;
+
 				const metadata: SelectionMetadata = {
 					selectedText: selectedText.trim(),
 					selectedHtml: selectedHtml || selectedText.trim(),
@@ -182,6 +187,93 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 			}, 0);
 		}
 	}, [value]);
+
+	// Handle sequential scrolling to specific content
+	useEffect(() => {
+		const editor = editorRef.current;
+		if (!editor || scrollTargets.length === 0) return;
+
+		let isCancelled = false;
+
+		const processTargets = async () => {
+			for (let i = 0; i < scrollTargets.length; i++) {
+				if (isCancelled) break;
+
+				const target = scrollTargets[i];
+				let targetElement: HTMLElement | null = null;
+
+				try {
+					const body = editor.getBody();
+
+					if (target.type === 'question') {
+						const strongs = body.querySelectorAll('p strong');
+						for (const strong of Array.from(strongs)) {
+							const text = strong.textContent || '';
+							const prefixRegex = new RegExp(`^\\s*${target.number}\\s*[:.)\\-]`);
+							if (prefixRegex.test(text)) {
+								targetElement = (
+									strong.parentElement?.tagName === 'P' ? strong.parentElement : strong
+								) as HTMLElement;
+								break;
+							}
+						}
+					} else if (target.type === 'text') {
+						const temp = document.createElement('div');
+						temp.innerHTML = target.text;
+						const plainText = (temp.textContent || target.text).trim();
+						const searchStr = plainText.substring(0, 50);
+
+						if (searchStr) {
+							const walker = document.createTreeWalker(
+								body,
+								NodeFilter.SHOW_TEXT,
+								null
+							);
+							let node;
+							while ((node = walker.nextNode())) {
+								if (node.textContent?.includes(searchStr)) {
+									targetElement = node.parentElement;
+									break;
+								}
+							}
+						}
+					} else if (target.type === 'top') {
+						targetElement = body;
+					}
+
+					if (targetElement) {
+						// Scroll to element
+						targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+						// Add flash effect
+						targetElement.classList.remove('flash-highlight');
+						// Force reflow
+						void targetElement.offsetWidth;
+						targetElement.classList.add('flash-highlight');
+
+						// Wait before next scroll (if any)
+						if (scrollTargets.length > 1) {
+							await new Promise((resolve) => setTimeout(resolve, 800));
+						}
+					}
+				} catch (err) {
+					console.warn('[TinyMCEEditor] Step scroll failed:', err);
+				}
+			}
+
+			if (!isCancelled) {
+				onScrollHandled?.();
+			}
+		};
+
+		// Initial delay to ensure content is fully processed by TinyMCE
+		const timer = setTimeout(processTargets, 300);
+
+		return () => {
+			isCancelled = true;
+			clearTimeout(timer);
+		};
+	}, [scrollTargets, onScrollHandled]);
 
 	return (
 		<Editor

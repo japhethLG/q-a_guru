@@ -1,5 +1,5 @@
 import React, { useRef, ChangeEvent, useEffect } from 'react';
-import { DocumentVersion } from '../types';
+import { DocumentVersion, ScrollTarget } from '../types';
 import { parseFile } from '../services/parser';
 import { generateQaStream } from '../services/gemini';
 import { stripCodeBlockWrappers } from '../utils/contentHelpers';
@@ -37,6 +37,7 @@ export const QAGenerator: React.FC = () => {
 		highlightedContent,
 		setHighlightedContent,
 	} = useAppContext();
+	const [pendingScrolls, setPendingScrolls] = React.useState<ScrollTarget[]>([]);
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -57,7 +58,9 @@ export const QAGenerator: React.FC = () => {
 		// Only validate when editor content changes, not when text is first selected
 		if (selectedText && editorContent) {
 			const editorPlainText = normalizeText(convertToPlainText(editorContent));
-			const selectedPlainText = normalizeText(convertToPlainText(selectedText.selectedText || selectedText.selectedHtml));
+			const selectedPlainText = normalizeText(
+				convertToPlainText(selectedText.selectedText || selectedText.selectedHtml)
+			);
 
 			if (!editorPlainText.includes(selectedPlainText)) {
 				setSelectedText(null);
@@ -169,7 +172,12 @@ export const QAGenerator: React.FC = () => {
 		}
 	};
 
-	const handleDocumentEdit = (newHtml: string, reason: string) => {
+	const handleDocumentEdit = (
+		newHtml: string,
+		reason: string,
+		scrollTo?: ScrollTarget,
+		scrollTargets?: ScrollTarget[]
+	) => {
 		const newVersion: DocumentVersion = {
 			id: crypto.randomUUID(),
 			timestamp: Date.now(),
@@ -181,6 +189,12 @@ export const QAGenerator: React.FC = () => {
 		setEditorContent(newHtml);
 		setIsEditorDirty(false);
 		setPreviewVersionId(null);
+
+		if (scrollTargets && scrollTargets.length > 0) {
+			setPendingScrolls(scrollTargets);
+		} else if (scrollTo) {
+			setPendingScrolls([scrollTo]);
+		}
 	};
 
 	const handleSaveVersion = () => {
@@ -275,6 +289,8 @@ export const QAGenerator: React.FC = () => {
 						onRevert={handleRevert}
 						onDelete={handleDeleteVersion}
 						highlightedContent={highlightedContent}
+						scrollTargets={pendingScrolls}
+						onScrollHandled={() => setPendingScrolls([])}
 					/>
 				</div>
 				<div className="flex min-h-0 overflow-hidden lg:col-span-1">

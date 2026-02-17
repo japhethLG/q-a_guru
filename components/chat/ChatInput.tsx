@@ -17,10 +17,13 @@ interface ChatInputProps {
 const actionButtons = [
 	{ label: 'Improve', prompt: 'Improve the writing of the selected text.' },
 	{
-		label: 'Fix Grammar',
-		prompt: 'Fix spelling & grammar for the selected text.',
+		label: 'Change',
+		prompt: 'Change or rewrite the selected text with a different approach.',
 	},
-	{ label: 'Summarize', prompt: 'Summarize the selected text.' },
+	{
+		label: 'Harder',
+		prompt: 'Make the selected questions harder and more challenging.',
+	},
 ];
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -72,9 +75,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 							onSendMessage();
 						}
 					}}
-					placeholder={
-						selectedText ? 'Ask about selection...' : 'Ask a question...'
-					}
+					placeholder={selectedText ? 'Ask about selection...' : 'Ask a question...'}
 					disabled={isLoading}
 					rows={1}
 					size="md"
@@ -92,4 +93,3 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		</div>
 	);
 };
-

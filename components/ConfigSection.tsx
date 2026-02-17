@@ -15,6 +15,7 @@ import {
 	NumberInput,
 	Modal,
 	ContentPreview,
+	ModelPicker,
 } from './common';
 import { TemplateManager } from './TemplateManager';
 import { TemplateEditor } from './TemplateEditor';
@@ -100,22 +101,9 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 						onChange={(e) => setQaConfig((c) => ({ ...c, apiKey: e.target.value }))}
 						placeholder="Leave empty to use environment variable"
 					/>
-					<Select
-						label="Model"
-						options={[
-							{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-							{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-							{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-							{ value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
-							{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-						]}
+					<ModelPicker
 						value={qaConfig.model}
-						onChange={(e) =>
-							setQaConfig((c) => ({
-								...c,
-								model: e.target.value as QaConfig['model'],
-							}))
-						}
+						onChange={(model) => setQaConfig((c) => ({ ...c, model }))}
 					/>
 
 					{/* Template Management */}

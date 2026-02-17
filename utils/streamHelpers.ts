@@ -56,37 +56,6 @@ export const createMessageWithThinking = (
 };
 
 /**
- * Create a reflection message with combined thinking from chat and reflection
- */
-export const createReflectionMessageWithThinking = (
-	content: string,
-	reflectionThinking: string,
-	reflectionThinkingStartTime: number | undefined,
-	currentMessage: ChatMessage
-): ChatMessage => {
-	const combinedThinking = (currentMessage.thinking || '') + reflectionThinking;
-
-	if (combinedThinking) {
-		return {
-			role: 'model',
-			content,
-			thinking: combinedThinking,
-			...(currentMessage.thinkingStartTime || reflectionThinkingStartTime
-				? {
-						thinkingStartTime:
-							currentMessage.thinkingStartTime || reflectionThinkingStartTime,
-					}
-				: {}),
-		};
-	}
-
-	return {
-		role: 'model',
-		content,
-	};
-};
-
-/**
  * Interface for chat stream processing state
  */
 export interface ChatStreamState {
@@ -95,6 +64,36 @@ export interface ChatStreamState {
 	thinkingStartTime: number | undefined;
 	isFirstChunk: boolean;
 }
+
+/**
+ * Manually extract text from a response chunk's parts,
+ * avoiding the SDK's `.text` getter which logs warnings when
+ * non-text parts (e.g., functionCall, thoughtSignature) are present.
+ */
+const extractTextFromChunk = (chunk: any): string | undefined => {
+	// Try candidates[0].content.parts directly
+	const parts = chunk?.candidates?.[0]?.content?.parts;
+	if (!Array.isArray(parts)) {
+		return undefined;
+	}
+
+	let text = '';
+	let hasTextPart = false;
+
+	for (const part of parts) {
+		// Skip thinking/thought parts
+		if (typeof part.thought === 'boolean' && part.thought) {
+			continue;
+		}
+		// Only accumulate actual text parts
+		if (typeof part.text === 'string') {
+			hasTextPart = true;
+			text += part.text;
+		}
+	}
+
+	return hasTextPart ? text : undefined;
+};
 
 /**
  * Process a single chat stream chunk and update state
@@ -118,14 +117,15 @@ export const processChatStreamChunk = (
 		state.accumulatedThinking += thinkingText;
 	}
 
-	// Process text content
+	// Process text content — use manual extraction to avoid SDK warning
 	let text: string | null = null;
-	if (chunk.text) {
+	const chunkText = extractTextFromChunk(chunk);
+	if (chunkText !== undefined) {
 		if (state.isFirstChunk) {
-			state.accumulatedText = chunk.text;
+			state.accumulatedText = chunkText;
 			state.isFirstChunk = false;
 		} else {
-			state.accumulatedText += chunk.text;
+			state.accumulatedText += chunkText;
 		}
 		text = state.accumulatedText;
 	}
@@ -134,52 +134,6 @@ export const processChatStreamChunk = (
 		text,
 		thinking: thinkingText ? state.accumulatedThinking : null,
 		thinkingStartTime: state.thinkingStartTime,
-		updatedState: state,
-	};
-};
-
-/**
- * Interface for reflection stream processing state
- */
-export interface ReflectionStreamState {
-	reflectionText: string;
-	reflectionThinking: string;
-	reflectionThinkingStartTime: number | undefined;
-}
-
-/**
- * Process a single reflection stream chunk and update state
- */
-export const processReflectionStreamChunk = (
-	chunk: any,
-	state: ReflectionStreamState
-): {
-	text: string | null;
-	thinking: string | null;
-	thinkingStartTime: number | undefined;
-	updatedState: ReflectionStreamState;
-} => {
-	const thinkingText = extractThinkingTokens(chunk);
-
-	// Update thinking state
-	if (thinkingText) {
-		if (!state.reflectionThinkingStartTime && state.reflectionThinking === '') {
-			state.reflectionThinkingStartTime = Date.now();
-		}
-		state.reflectionThinking += thinkingText;
-	}
-
-	// Process text content
-	let text: string | null = null;
-	if (chunk.text) {
-		state.reflectionText += chunk.text;
-		text = state.reflectionText;
-	}
-
-	return {
-		text,
-		thinking: thinkingText ? state.reflectionThinking : null,
-		thinkingStartTime: state.reflectionThinkingStartTime,
 		updatedState: state,
 	};
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChatConfig } from '../../types';
-import { Button, Select } from '../common';
+import { Button, ModelPicker } from '../common';
 import { RefreshCwIcon } from '../common/Icons';
 
 interface ChatHeaderProps {
@@ -32,22 +32,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 					/>
 				)}
 			</div>
-			<Select
-				label="Model"
-				size="md"
-				options={[
-					{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-					{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-					{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-					{ value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
-					{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-				]}
+			<ModelPicker
 				value={chatConfig.model}
-				onChange={(e) =>
-					onConfigChange({
-						model: e.target.value as ChatConfig['model'],
-					})
-				}
+				onChange={(model) => onConfigChange({ model })}
+				size="md"
 				disabled={isLoading}
 			/>
 		</div>

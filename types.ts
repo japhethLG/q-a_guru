@@ -19,22 +19,12 @@ export interface QaConfig {
 	difficulty: 'easy' | 'medium' | 'hard';
 	instructions: string;
 	apiKey?: string;
-	model:
-		| 'gemini-2.5-pro'
-		| 'gemini-2.5-flash'
-		| 'gemini-2.5-flash-lite'
-		| 'gemini-3-pro-preview'
-		| 'gemini-3-flash-preview';
+	model: string;
 	selectedTemplateId?: string;
 }
 
 export interface ChatConfig {
-	model:
-		| 'gemini-2.5-pro'
-		| 'gemini-2.5-flash'
-		| 'gemini-2.5-flash-lite'
-		| 'gemini-3-pro-preview'
-		| 'gemini-3-flash-preview';
+	model: string;
 }
 
 export interface ChatMessage {
@@ -69,3 +59,8 @@ export interface SelectionMetadata {
 	contextBefore?: string; // 100 chars before selection
 	contextAfter?: string; // 100 chars after selection
 }
+
+export type ScrollTarget =
+	| { type: 'question'; number: number }
+	| { type: 'text'; text: string }
+	| { type: 'top' };

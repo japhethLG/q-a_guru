@@ -16,3 +16,4 @@ export { Modal } from './Modal';
 export { TinyMCEEditor } from './TinyMCEEditor';
 export { ContentPreview } from './ContentPreview';
 export { ThinkingSection } from './ThinkingSection';
+export { ModelPicker } from './ModelPicker';

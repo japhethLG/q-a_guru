@@ -1,5 +1,10 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { DownloadFormat, DocumentVersion, SelectionMetadata } from '../types';
+import {
+	DownloadFormat,
+	DocumentVersion,
+	SelectionMetadata,
+	ScrollTarget,
+} from '../types';
 import { SaveIcon, XIcon } from './common/Icons';
 import {
 	Button,
@@ -34,6 +39,8 @@ interface EditorSectionProps {
 	onRevert: (versionId: string) => void;
 	onDelete: (versionId: string) => void;
 	highlightedContent?: string | null;
+	scrollTargets?: ScrollTarget[];
+	onScrollHandled?: () => void;
 }
 
 export const EditorSection: React.FC<EditorSectionProps> = ({
@@ -52,6 +59,8 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 	onRevert,
 	onDelete,
 	highlightedContent,
+	scrollTargets = [],
+	onScrollHandled,
 }) => {
 	const editorRef = useRef<TinyMCEEditorType | null>(null);
 	const [isVersionDropdownOpen, setIsVersionDropdownOpen] = useState(false);
@@ -177,6 +186,8 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 					plugins={TINYMCE_PLUGINS}
 					quickbarsSelectionToolbar={TINYMCE_QUICKBARS_SELECTION_TOOLBAR}
 					quickbarsInsertToolbar={TINYMCE_QUICKBARS_INSERT_TOOLBAR}
+					scrollTargets={scrollTargets}
+					onScrollHandled={onScrollHandled}
 				/>
 			</div>
 		</div>
