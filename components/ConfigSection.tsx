@@ -36,8 +36,15 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 	onGenerate,
 	onStop,
 }) => {
-	const { qaConfig, setQaConfig, files, isParsing, isGenerating } =
-		useAppContext();
+	const {
+		qaConfig,
+		setQaConfig,
+		files,
+		isParsing,
+		isGenerating,
+		providerConfig,
+		setProviderConfig,
+	} = useAppContext();
 
 	const isDisabled = files.length === 0 || isParsing || isGenerating;
 	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -94,13 +101,54 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 		>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="flex-1 space-y-4 overflow-y-auto pr-2">
-					<Input
-						label="API Key (Optional)"
-						type="password"
-						value={qaConfig.apiKey || ''}
-						onChange={(e) => setQaConfig((c) => ({ ...c, apiKey: e.target.value }))}
-						placeholder="Leave empty to use environment variable"
+					<Select
+						label="LLM Provider"
+						value={providerConfig.type}
+						onChange={(e) =>
+							setProviderConfig((c) => ({
+								...c,
+								type: e.target.value as
+									| 'gemini-sdk'
+									| 'antigravity-proxy',
+							}))
+						}
+						options={[
+							{
+								value: 'gemini-sdk',
+								label: 'Google Gemini (Direct)',
+							},
+							{
+								value: 'antigravity-proxy',
+								label: 'Antigravity Proxy',
+							},
+						]}
 					/>
+					{providerConfig.type === 'gemini-sdk' ? (
+						<Input
+							label="API Key (Optional)"
+							type="password"
+							value={qaConfig.apiKey || ''}
+							onChange={(e) =>
+								setQaConfig((c) => ({
+									...c,
+									apiKey: e.target.value,
+								}))
+							}
+							placeholder="Leave empty to use environment variable"
+						/>
+					) : (
+						<Input
+							label="Proxy URL"
+							value={providerConfig.baseUrl || ''}
+							onChange={(e) =>
+								setProviderConfig((c) => ({
+									...c,
+									baseUrl: e.target.value,
+								}))
+							}
+							placeholder="http://localhost:8080"
+						/>
+					)}
 					<ModelPicker
 						value={qaConfig.model}
 						onChange={(model) => setQaConfig((c) => ({ ...c, model }))}

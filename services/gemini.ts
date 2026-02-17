@@ -24,6 +24,7 @@ import {
 import { getTemplateById } from './templateStorage';
 import { buildContextBudget, truncateSourceDocuments } from './contextManager';
 import { getOrCreateCache } from './geminiCache';
+import { LLMTransport, createSDKTransport } from './llmTransport';
 
 /**
  * Generates questions and answers based on provided documents and configuration.
@@ -33,10 +34,12 @@ export const generateQaStream = async function* (
 	documents: string[],
 	config: QaConfig,
 	apiKey?: string,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	transport?: LLMTransport
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
-	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-	const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+	const effectiveTransport =
+		transport ||
+		createSDKTransport(apiKey || import.meta.env.VITE_GEMINI_API_KEY);
 
 	// Get template if selected
 	const selectedTemplate = config.selectedTemplateId
@@ -60,8 +63,7 @@ export const generateQaStream = async function* (
 
 	try {
 		// Use generateContentStream for streaming responses
-		const response = ai.models.generateContentStream({
-			// Use model from config
+		const response = effectiveTransport.generateContentStream({
 			model: config.model,
 			contents: prompt,
 		});
@@ -89,11 +91,13 @@ export const analyzeImage = async (
 	base64ImageData: string,
 	mimeType: string,
 	prompt: string,
-	apiKey?: string
+	apiKey?: string,
+	transport?: LLMTransport
 ): Promise<string> => {
 	try {
-		const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-		const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+		const effectiveTransport =
+			transport ||
+			createSDKTransport(apiKey || import.meta.env.VITE_GEMINI_API_KEY);
 
 		const imagePart = {
 			inlineData: {
@@ -106,14 +110,11 @@ export const analyzeImage = async (
 			text: prompt,
 		};
 
-		// Per guidelines, use generateContent for multimodal input.
-		const response = await ai.models.generateContent({
-			// 'gemini-2.5-flash' is a suitable model for multimodal chat.
+		const response = await effectiveTransport.generateContent({
 			model: 'gemini-2.5-flash',
 			contents: { parts: [imagePart, textPart] },
 		});
 
-		// Per guidelines, extract text output via the .text property.
 		return response.text;
 	} catch (error) {
 		console.error('Error analyzing image:', error);
@@ -182,24 +183,13 @@ const readDocumentTool: FunctionDeclaration = {
 	},
 };
 
-// Reuse AI client when API key hasn't changed
-let cachedAiClient: { ai: GoogleGenAI; apiKey: string } | null = null;
-
-function getAiClient(apiKey: string): GoogleGenAI {
-	if (cachedAiClient && cachedAiClient.apiKey === apiKey) {
-		return cachedAiClient.ai;
-	}
-	const ai = new GoogleGenAI({ apiKey });
-	cachedAiClient = { ai, apiKey };
-	return ai;
-}
-
 /**
  * Handles chat interactions, providing context and tools to the AI.
  * Returns an async generator that yields streaming responses.
  *
  * Attempts to use Gemini context caching for the system instruction,
  * source documents, and tools. Falls back to uncached mode on any error.
+ * When using a proxy transport, caching is skipped (proxy handles it internally).
  */
 export const getChatResponseStream = async function* (
 	history: ChatMessage[],
@@ -210,10 +200,12 @@ export const getChatResponseStream = async function* (
 	apiKey?: string,
 	model: string = 'gemini-3-flash-preview',
 	qaConfig?: QaConfig | null,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	transport?: LLMTransport
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
-	const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-	const ai = getAiClient(effectiveApiKey);
+	const effectiveTransport =
+		transport ||
+		createSDKTransport(apiKey || import.meta.env.VITE_GEMINI_API_KEY);
 
 	// Build the base system instruction (static — cacheable)
 	const baseSystemInstruction = prompts.baseChatSystemInstruction(
@@ -249,15 +241,20 @@ export const getChatResponseStream = async function* (
 
 	const tools: FunctionDeclaration[] = [editDocumentTool, readDocumentTool];
 
-	// --- Try context caching (system instruction + source docs + tools) ---
-	const cacheName = await getOrCreateCache({
-		ai,
-		model,
-		systemInstruction: baseSystemInstruction,
-		sourceDocuments: trimmedSourceDocs,
-		tools,
-		apiKey: effectiveApiKey,
-	});
+	// --- Try context caching (only when transport supports it) ---
+	let cacheName: string | null = null;
+	if (effectiveTransport.supportsCaching) {
+		const effectiveApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+		const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+		cacheName = await getOrCreateCache({
+			ai,
+			model,
+			systemInstruction: baseSystemInstruction,
+			sourceDocuments: trimmedSourceDocs,
+			tools,
+			apiKey: effectiveApiKey,
+		});
+	}
 
 	// Token budget check (informational — logs breakdown in dev)
 	buildContextBudget({
@@ -319,7 +316,7 @@ export const getChatResponseStream = async function* (
 			config.tools = [{ functionDeclarations: tools }];
 		}
 
-		const response = ai.models.generateContentStream({
+		const response = effectiveTransport.generateContentStream({
 			model: model,
 			contents: contents,
 			config,

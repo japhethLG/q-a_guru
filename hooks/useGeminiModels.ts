@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { useAppContext } from '../contexts/AppContext';
 
 interface ModelOption {
@@ -10,7 +9,7 @@ interface ModelOption {
 
 // Module-level cache: avoids refetching on every render / remount
 let cachedModels: ModelOption[] | null = null;
-let cachedApiKey: string | null = null;
+let cachedCacheKey: string | null = null;
 
 const FALLBACK_MODELS: ModelOption[] = [
 	{
@@ -50,13 +49,19 @@ function prettifyName(name: string, displayName?: string): string {
 }
 
 /**
- * Hook that fetches available Gemini models from the API.
- * Only returns chat-capable Gemini 3+ models.
+ * Hook that fetches available models via the active transport.
+ * Works with both GoogleGenAI SDK and Antigravity Proxy.
  * Caches results at module level so the API is hit at most once per session.
  */
 export function useGeminiModels() {
-	const { qaConfig } = useAppContext();
+	const { qaConfig, transport, providerConfig } = useAppContext();
 	const apiKey = qaConfig.apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+
+	// Cache key combines provider type + api key / base URL so we refetch on provider switch
+	const cacheKey =
+		providerConfig.type === 'antigravity-proxy'
+			? `proxy:${providerConfig.baseUrl || 'http://localhost:8080'}`
+			: `sdk:${apiKey}`;
 
 	const [models, setModels] = useState<ModelOption[]>(
 		cachedModels ?? FALLBACK_MODELS
@@ -67,13 +72,16 @@ export function useGeminiModels() {
 
 	useEffect(() => {
 		// Skip if already fetched with the same key
-		if (cachedModels && cachedApiKey === apiKey) {
+		if (cachedModels && cachedCacheKey === cacheKey) {
 			setModels(cachedModels);
 			setIsLoading(false);
 			return;
 		}
 
-		if (!apiKey || fetchedRef.current) return;
+		// For SDK transport, require an API key
+		if (providerConfig.type === 'gemini-sdk' && !apiKey) return;
+
+		if (fetchedRef.current) return;
 
 		let cancelled = false;
 		fetchedRef.current = true;
@@ -81,8 +89,9 @@ export function useGeminiModels() {
 		(async () => {
 			try {
 				setIsLoading(true);
-				const ai = new GoogleGenAI({ apiKey });
-				const pager = await ai.models.list({ config: { pageSize: 100 } });
+				const pager = await transport.listModels({
+					config: { pageSize: 100 },
+				});
 
 				const result: ModelOption[] = [];
 
@@ -95,11 +104,18 @@ export function useGeminiModels() {
 					// Skip embedding / image-only / non-chat models
 					const desc = (model.description || '').toLowerCase();
 					if (desc.includes('embedding')) continue;
-					if (desc.includes('image generation') && !desc.includes('text')) continue;
+					if (
+						desc.includes('image generation') &&
+						!desc.includes('text')
+					)
+						continue;
 
 					result.push({
 						value: name,
-						label: prettifyName(name, model.displayName || undefined),
+						label: prettifyName(
+							name,
+							model.displayName || undefined
+						),
 						group: inferGroup(name),
 					});
 				}
@@ -116,13 +132,15 @@ export function useGeminiModels() {
 
 				const finalModels = result.length > 0 ? result : FALLBACK_MODELS;
 				cachedModels = finalModels;
-				cachedApiKey = apiKey;
+				cachedCacheKey = cacheKey;
 				setModels(finalModels);
 				setError(null);
 			} catch (err) {
 				if (cancelled) return;
 				console.warn('[useGeminiModels] Failed to fetch models:', err);
-				setError(err instanceof Error ? err.message : 'Failed to fetch models');
+				setError(
+					err instanceof Error ? err.message : 'Failed to fetch models'
+				);
 				// Keep fallback models
 				setModels(FALLBACK_MODELS);
 			} finally {
@@ -133,7 +151,7 @@ export function useGeminiModels() {
 		return () => {
 			cancelled = true;
 		};
-	}, [apiKey]);
+	}, [cacheKey]);
 
 	return { models, isLoading, error };
 }

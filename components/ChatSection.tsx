@@ -26,6 +26,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		generationConfig,
 		setHighlightedContent,
 		setSelectedText,
+		transport,
 	} = useAppContext();
 
 	const {
@@ -49,6 +50,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		qaConfig,
 		generationConfig,
 		chatConfig: { model: 'gemini-3-flash-preview' },
+		transport,
 		onDocumentEdit,
 	});
 

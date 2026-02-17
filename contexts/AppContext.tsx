@@ -2,14 +2,21 @@ import React, {
 	createContext,
 	useContext,
 	useState,
+	useMemo,
 	useEffect,
 	ReactNode,
 } from 'react';
-import { QaConfig, DocumentVersion, SelectionMetadata } from '../types';
+import {
+	QaConfig,
+	DocumentVersion,
+	SelectionMetadata,
+	ProviderConfig,
+} from '../types';
 import {
 	getActiveTemplate,
 	getTemplateById,
 } from '../services/templateStorage';
+import { LLMTransport, createTransport } from '../services/llmTransport';
 
 interface AppContextType {
 	// Files state
@@ -51,6 +58,11 @@ interface AppContextType {
 	setIsParsing: React.Dispatch<React.SetStateAction<boolean>>;
 	isGenerating: boolean;
 	setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
+
+	// Provider config
+	providerConfig: ProviderConfig;
+	setProviderConfig: React.Dispatch<React.SetStateAction<ProviderConfig>>;
+	transport: LLMTransport;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -106,6 +118,41 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 	// Loading states
 	const [isParsing, setIsParsing] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
+
+	// Provider config — persisted to localStorage
+	const [providerConfig, setProviderConfig] = useState<ProviderConfig>(
+		() => {
+			try {
+				const saved = localStorage.getItem('qa-guru-provider-config');
+				if (saved) return JSON.parse(saved);
+			} catch {
+				// Ignore parse errors
+			}
+			return { type: 'gemini-sdk' } as ProviderConfig;
+		}
+	);
+
+	// Persist provider config changes
+	useEffect(() => {
+		try {
+			localStorage.setItem(
+				'qa-guru-provider-config',
+				JSON.stringify(providerConfig)
+			);
+		} catch {
+			// Ignore storage errors
+		}
+	}, [providerConfig]);
+
+	// Create transport instance — memoized on provider config + API key
+	const transport = useMemo(() => {
+		const config = { ...providerConfig };
+		// For SDK transport, merge in the API key from qaConfig
+		if (config.type === 'gemini-sdk' && !config.apiKey) {
+			config.apiKey = qaConfig.apiKey;
+		}
+		return createTransport(config);
+	}, [providerConfig, qaConfig.apiKey]);
 
 	// Set default template on mount and sync type from template
 	useEffect(() => {
@@ -176,6 +223,11 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		setIsParsing,
 		isGenerating,
 		setIsGenerating,
+
+		// Provider
+		providerConfig,
+		setProviderConfig,
+		transport,
 	};
 
 	return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

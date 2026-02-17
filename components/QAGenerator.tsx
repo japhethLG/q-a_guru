@@ -36,6 +36,7 @@ export const QAGenerator: React.FC = () => {
 		setPreviewVersionId,
 		highlightedContent,
 		setHighlightedContent,
+		transport,
 	} = useAppContext();
 	const [pendingScrolls, setPendingScrolls] = React.useState<ScrollTarget[]>([]);
 
@@ -113,7 +114,8 @@ export const QAGenerator: React.FC = () => {
 				documentsContent,
 				qaConfig,
 				qaConfig.apiKey,
-				abortControllerRef.current.signal
+				abortControllerRef.current.signal,
+				transport
 			);
 
 			// Accumulate streaming text

@@ -14,6 +14,7 @@ import {
 	handleFunctionCalls,
 	buildToolResultMessage,
 } from './useToolExecution';
+import { LLMTransport } from '../services/llmTransport';
 
 interface UseChatProps {
 	documentHtml: string;
@@ -22,6 +23,7 @@ interface UseChatProps {
 	qaConfig: any;
 	generationConfig: any;
 	chatConfig: ChatConfig;
+	transport: LLMTransport;
 	onDocumentEdit: (
 		newHtml: string,
 		reason: string,
@@ -91,6 +93,7 @@ export const useChat = ({
 	qaConfig,
 	generationConfig,
 	chatConfig: initialChatConfig,
+	transport,
 	onDocumentEdit,
 }: UseChatProps): UseChatReturn => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -168,7 +171,8 @@ export const useChat = ({
 					qaConfig.apiKey,
 					chatConfig.model,
 					generationConfig || qaConfig,
-					abortControllerRef.current!.signal
+					abortControllerRef.current!.signal,
+					transport
 				);
 
 				const streamResult = await processChatStream(responseStream);
@@ -313,7 +317,8 @@ export const useChat = ({
 						qaConfig.apiKey,
 						chatConfig.model,
 						generationConfig || qaConfig,
-						abortControllerRef.current.signal
+						abortControllerRef.current.signal,
+						transport
 					);
 
 					// Replace with a fresh placeholder for retry

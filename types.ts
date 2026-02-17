@@ -64,3 +64,9 @@ export type ScrollTarget =
 	| { type: 'question'; number: number }
 	| { type: 'text'; text: string }
 	| { type: 'top' };
+
+export interface ProviderConfig {
+	type: 'gemini-sdk' | 'antigravity-proxy';
+	apiKey?: string;
+	baseUrl?: string;
+}
