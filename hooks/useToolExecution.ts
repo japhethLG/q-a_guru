@@ -12,6 +12,7 @@ import {
 	ProcessFunctionCallsResult,
 } from '../services/gemini';
 import { StreamResult } from './useStreamProcessor';
+import { LLMTransport } from '../services/llmTransport';
 
 /** Maximum number of tool-call iterations per user message */
 export const MAX_AGENT_TURNS = 5;
@@ -23,14 +24,16 @@ export const MAX_AGENT_TURNS = 5;
  * processFunctionCalls service, mapping the collected function calls
  * and accumulated text.
  */
-export function handleFunctionCalls(
+export async function handleFunctionCalls(
 	streamResult: StreamResult,
-	documentHtml: string
-): ProcessFunctionCallsResult {
+	documentHtml: string,
+	transport?: LLMTransport
+): Promise<ProcessFunctionCallsResult> {
 	return processFunctionCalls({
 		functionCalls: streamResult.collectedFunctionCalls,
 		documentHtml,
 		accumulatedText: streamResult.accumulatedText,
+		transport,
 	});
 }
 

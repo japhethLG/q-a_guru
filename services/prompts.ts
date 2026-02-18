@@ -140,30 +140,34 @@ ${!hasDocuments ? `⚠️ NO DOCUMENTS ATTACHED: No source documents in this ses
 When the user asks you to modify the document, you MUST use the edit_document tool.
 If selected context is provided, focus your edits on that specific content.
 
-**Semantic tools (PREFERRED for Q&A content):**
-1. **edit_question**: Change a specific field by question number. Params: edit_type="edit_question", question_number, field ("question_text"/"answer"/"reference"/"full_question"), new_content.
-2. **add_questions**: Insert new questions. Params: edit_type="add_questions", new_content (HTML), position ("before"/"after"/"beginning"/"end"), question_number. ⚠️ NUMBERING: The system auto-renumbers questions after insertion. Always number your new questions starting from 1 in new_content — the system will fix the final numbering.
-3. **delete_question**: Remove a question by number. Params: edit_type="delete_question", question_number. Auto-renumbers.
+**Available edit types:**
 
-**Fallback tools (non-Q&A or complex edits):**
-4. **edit_section**: Edit non-Q&A content. Params: edit_type="edit_section", html_snippet_to_replace, new_content.
-5. **snippet_replace**: Targeted HTML replacement. Params: edit_type="snippet_replace", html_snippet_to_replace, replacement_html.
-6. **full_replace**: Replace entire document. Params: edit_type="full_replace", full_document_html.
+1. **snippet_replace** (PREFERRED for targeted edits):
+   Use for changing a specific answer, fixing a reference, editing question text, or any small change.
+   Params: edit_type="snippet_replace", html_snippet_to_replace (exact HTML from the document, include 3+ lines of context), replacement_html (the new HTML), instruction (short description of WHY this edit is needed — REQUIRED).
+   
+   ⚠️ CRITICAL: html_snippet_to_replace must be an EXACT substring of the current document HTML. Copy it precisely, including all tags, attributes, whitespace, and entities.
+
+2. **full_replace** (for structural changes):
+   Use for adding new questions, deleting questions, reordering, major rewrites, or when the document is empty.
+   Params: edit_type="full_replace", full_document_html (the complete updated document HTML).
+   
+   When adding questions: output the ENTIRE document with the new questions inserted at the correct position, with correct numbering.
+   When deleting questions: output the ENTIRE document without the deleted question(s), with renumbered remaining questions.
 
 **Inspection tool:**
 - **read_document**: Inspect document structure before editing. Returns all questions with numbers, text, answers.
 
 **Quick reference:**
-- Change question 3's answer → edit_question, question_number=3, field="answer"
-- Delete question 5 → delete_question, question_number=5
-- Add questions at end → add_questions, position="end"
-- Edit a header → edit_section or snippet_replace
+- Change question 3's answer → snippet_replace targeting that answer's HTML
+- Delete question 5 → full_replace with the entire document minus question 5
+- Add questions at end → full_replace with the entire document plus new questions
+- Edit a header or reference → snippet_replace
 - Rewrite everything → full_replace
 - Unsure what exists → read_document first
-- Delete a question → delete_question
 - Delete ALL content → full_replace with empty string
 - Empty document → create with full_replace
-- Batch edits (e.g., edit questions 1, 3, 5) → multiple edit_document calls in one response. Each edit is applied sequentially.
+- Batch edits to different parts → multiple snippet_replace calls in one response. Each edit is applied sequentially.
 </editing_instructions>
 
 <agentic_behavior>
@@ -275,7 +279,7 @@ ${selectedTemplate.templateString}
 			);
 			if (parsed.questions.length > 0) {
 				const numbers = parsed.questions.map((q) => q.number);
-				questionGuidance = `\nThe selected content contains question(s): ${numbers.join(', ')}.\nFor Q&A edits: use semantic tools (edit_question, delete_question, etc.) with these question numbers.`;
+				questionGuidance = `\nThe selected content contains question(s): ${numbers.join(', ')}.\nFor targeted edits: use snippet_replace with html_snippet_to_replace matching the selected HTML.\nFor structural changes (add/delete): use full_replace.`;
 			} else {
 				// Selection doesn't contain a full question header — try to detect if
 				// it's part of a question by checking contextBefore for a number pattern
@@ -284,15 +288,15 @@ ${selectedTemplate.templateString}
 				);
 				if (beforeMatch) {
 					const nearbyNumber = parseInt(beforeMatch[1], 10);
-					questionGuidance = `\nThis selection appears to be part of question ${nearbyNumber}.\nFor Q&A edits: use semantic tools with question_number=${nearbyNumber}.`;
+					questionGuidance = `\nThis selection appears to be part of question ${nearbyNumber}.\nFor targeted edits: use snippet_replace with the exact HTML from the document.`;
 				} else {
 					questionGuidance =
-						'\nThis selection does not appear to contain a question header.\nFor edits: use edit_section or snippet_replace, not semantic question tools.';
+						'\nThis selection does not appear to contain a question header.\nFor edits: use snippet_replace with the exact HTML, or full_replace for structural changes.';
 				}
 			}
 		} catch {
 			questionGuidance =
-				'\nFor Q&A content: use semantic tools (edit_question, etc.) targeting the selected question.\nFor non-Q&A content: use edit_section or snippet_replace.';
+				'\nFor targeted edits: use snippet_replace with the exact HTML.\nFor structural changes: use full_replace.';
 		}
 
 		return (
@@ -331,59 +335,35 @@ export const toolDeclarations = {
 	editDocument: {
 		name: 'edit_document',
 		description:
-			'Edits the document content. Choose the most appropriate edit_type for the task. Prefer semantic types (edit_question, add_questions, delete_question) for Q&A content.',
+			'Edits the document content. Use snippet_replace for targeted edits (changing an answer, fixing a reference). Use full_replace for structural changes (adding/deleting questions, major rewrites).',
 		parameters: {
 			type: 'object' as const,
 			properties: {
 				edit_type: {
 					type: 'string' as const,
 					description:
-						'The type of edit to perform. Use "edit_question" to change a specific question field, "add_questions" to insert new questions at the bottom of the document, "delete_question" to remove a question, "edit_section" for non-Q&A content, "snippet_replace" for targeted HTML replacement, or "full_replace" for complete document rewrite.',
-					enum: [
-						'edit_question',
-						'add_questions',
-						'delete_question',
-						'edit_section',
-						'full_replace',
-						'snippet_replace',
-					],
-				},
-				question_number: {
-					type: 'number' as const,
-					description:
-						'For edit_question/delete_question: the 1-based question number to target. For add_questions with position "before"/"after": the reference question number.',
-				},
-				field: {
-					type: 'string' as const,
-					description:
-						'For edit_question: which field to edit. "question_text" for the question itself, "answer" for the answer, "reference" for the reference/citation, "full_question" to replace the entire question HTML.',
-					enum: ['question_text', 'answer', 'reference', 'full_question'],
-				},
-				new_content: {
-					type: 'string' as const,
-					description:
-						'The new content for the targeted field or section. For edit_question: the new text for the specified field. For add_questions: the complete HTML for the new question(s) following the template format. For edit_section: the replacement HTML for the non-Q&A section.',
-				},
-				position: {
-					type: 'string' as const,
-					description:
-						'For add_questions: where to insert. "before" or "after" a question_number, "beginning" for start of document, "end" for end of document.',
-					enum: ['before', 'after', 'beginning', 'end'],
-				},
-				full_document_html: {
-					type: 'string' as const,
-					description:
-						'For full_replace only: the complete new HTML content for the entire document. Use for major rewrites or when semantic tools are not applicable.',
+						'The type of edit: "snippet_replace" for targeted search-and-replace edits, "full_replace" for complete document replacement (adding questions, deleting questions, rewriting).',
+					enum: ['snippet_replace', 'full_replace'],
 				},
 				html_snippet_to_replace: {
 					type: 'string' as const,
 					description:
-						'For snippet_replace only: an exact HTML snippet from the current document to find and replace. Fallback when semantic tools cannot target the content.',
+						'For snippet_replace: an exact HTML snippet from the current document to find and replace. Include 3+ lines of surrounding context for reliable matching.',
 				},
 				replacement_html: {
 					type: 'string' as const,
 					description:
-						'For snippet_replace only: the new HTML to replace the snippet with. Use empty string to delete.',
+						'For snippet_replace: the new HTML to replace the snippet with. Use empty string to delete the snippet.',
+				},
+				instruction: {
+					type: 'string' as const,
+					description:
+						'For snippet_replace: a short description of WHY this edit is needed (e.g. "Change the answer of question 3 from Paris to London"). Used for self-correction if the match fails.',
+				},
+				full_document_html: {
+					type: 'string' as const,
+					description:
+						'For full_replace: the complete new HTML content for the entire document.',
 				},
 			},
 		},

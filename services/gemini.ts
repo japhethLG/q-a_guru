@@ -14,17 +14,12 @@ import {
 import { prompts, toolDeclarations } from './prompts';
 import { tryReplaceExact, tryReplaceFuzzy } from './htmlReplace';
 import { tryReplaceDom } from './domEditor';
-import {
-	parseQuestions,
-	rebuildDocument,
-	updateQuestionField,
-	renumberQuestions,
-	summarizeDocument,
-} from './documentParser';
+import { parseQuestions, summarizeDocument } from './documentParser';
 import { getTemplateById } from './templateStorage';
 import { buildContextBudget, truncateSourceDocuments } from './contextManager';
 import { getOrCreateCache } from './geminiCache';
 import { LLMTransport, createSDKTransport } from './llmTransport';
+import { fixLLMEdit } from './llmEditFixer';
 
 /**
  * Generates questions and answers based on provided documents and configuration.
@@ -125,49 +120,34 @@ export const analyzeImage = async (
 const editDocumentTool: FunctionDeclaration = {
 	name: 'edit_document',
 	description:
-		'Edits the document content. Choose the most appropriate edit_type for the task. Prefer semantic types (edit_question, add_questions, delete_question) for Q&A content.',
+		'Edits the document content. Use snippet_replace for targeted edits (changing an answer, fixing a reference). Use full_replace for structural changes (adding/deleting questions, major rewrites).',
 	parameters: {
 		type: Type.OBJECT,
 		properties: {
 			edit_type: {
 				type: Type.STRING,
 				description:
-					'The type of edit: "edit_question" to change a specific question field, "add_questions" to insert new questions, "delete_question" to remove a question, "edit_section" for non-Q&A content, "snippet_replace" for targeted HTML replacement, "full_replace" for complete document rewrite.',
-			},
-			question_number: {
-				type: Type.NUMBER,
-				description:
-					'For edit_question/delete_question: the 1-based question number to target. For add_questions with position before/after: the reference question number.',
-			},
-			field: {
-				type: Type.STRING,
-				description:
-					'For edit_question: which field to edit. Values: "question_text", "answer", "reference", "full_question".',
-			},
-			new_content: {
-				type: Type.STRING,
-				description:
-					'The new content for the targeted field or section. For edit_question: the new text. For add_questions: the complete HTML for new question(s). For edit_section: the replacement HTML.',
-			},
-			position: {
-				type: Type.STRING,
-				description:
-					'For add_questions: where to insert. Values: "before", "after", "beginning", "end".',
-			},
-			full_document_html: {
-				type: Type.STRING,
-				description:
-					'For full_replace only: the complete new HTML content for the entire document.',
+					'The type of edit: "snippet_replace" for targeted search-and-replace edits, "full_replace" for complete document replacement (adding questions, deleting questions, rewriting).',
 			},
 			html_snippet_to_replace: {
 				type: Type.STRING,
 				description:
-					'For snippet_replace only: an exact HTML snippet from the current document to find and replace.',
+					'For snippet_replace: an exact HTML snippet from the current document to find and replace. Include 3+ lines of surrounding context for reliable matching.',
 			},
 			replacement_html: {
 				type: Type.STRING,
 				description:
-					'For snippet_replace only: the new HTML to replace the snippet with. Use empty string to delete.',
+					'For snippet_replace: the new HTML to replace the snippet with. Use empty string to delete the snippet.',
+			},
+			instruction: {
+				type: Type.STRING,
+				description:
+					'For snippet_replace: a short description of WHY this edit is needed (e.g. "Change the answer of question 3 from Paris to London"). Used for self-correction if the match fails.',
+			},
+			full_document_html: {
+				type: Type.STRING,
+				description:
+					'For full_replace: the complete new HTML content for the entire document.',
 			},
 		},
 	},
@@ -341,10 +321,18 @@ export type ProcessFunctionCallsResult = {
 	success: boolean;
 	newHtml?: string;
 	toolUsageMessage?: string;
-	toolResponse?: string; // For non-edit tools like read_document
-	message: string; // Descriptive result for retry feedback
+	toolResponse?: string;
+	message: string;
 	scrollTo?: ScrollTarget;
-	scrollTargets?: ScrollTarget[]; // For multiple edits
+	scrollTargets?: ScrollTarget[];
+	_needsLLMFix?: boolean;
+	_fixerParams?: {
+		instruction: string;
+		failedSearchString: string;
+		replacementString: string;
+		errorMessage: string;
+		documentHtml: string;
+	};
 };
 
 /**
@@ -354,7 +342,8 @@ export type ProcessFunctionCallsResult = {
 function processSingleEdit(
 	args: Record<string, unknown>,
 	documentHtml: string,
-	accumulatedText: string
+	accumulatedText: string,
+	transport?: LLMTransport
 ): ProcessFunctionCallsResult {
 	const editType = (args.edit_type as string) || inferEditType(args);
 
@@ -370,227 +359,10 @@ function processSingleEdit(
 	};
 
 	switch (editType) {
-		case 'edit_question': {
-			const questionNumber = args.question_number as number;
-			const field = args.field as string;
-			const newContent = args.new_content as string;
-
-			if (!questionNumber || !field || newContent === undefined) {
-				return {
-					success: false,
-					message:
-						'edit_question requires question_number, field, and new_content. ' +
-						'Please provide all three parameters.',
-				};
-			}
-
-			const parseResult = parseQuestions(documentHtml);
-			const targetQuestion = parseResult.questions.find(
-				(q) => q.number === questionNumber
-			);
-
-			if (!targetQuestion) {
-				return {
-					success: false,
-					message:
-						`Question ${questionNumber} not found in the document. ` +
-						`The document has ${parseResult.questions.length} question(s): ` +
-						`${parseResult.questions.map((q) => q.number).join(', ')}. ` +
-						`Please use a valid question number, or use read_document to inspect the document.`,
-				};
-			}
-
-			const updatedQuestion = updateQuestionField(
-				targetQuestion,
-				field,
-				newContent
-			);
-
-			// Check if the field was actually updated
-			if (
-				updatedQuestion.fullHtml === targetQuestion.fullHtml &&
-				field !== 'full_question'
-			) {
-				return {
-					success: false,
-					message:
-						`Could not locate the "${field}" field in question ${questionNumber}. ` +
-						`The question text is: "${targetQuestion.questionText}". ` +
-						`Try using field "full_question" with the complete HTML for this question, ` +
-						`or use snippet_replace/full_replace as a fallback.`,
-				};
-			}
-
-			const updatedQuestions = parseResult.questions.map((q) =>
-				q.number === questionNumber ? updatedQuestion : q
-			);
-			const newHtml = rebuildDocument(documentHtml, parseResult, updatedQuestions);
-			const result = successMessage(
-				`Updated ${field} of question ${questionNumber}.`
-			);
-			result.newHtml = newHtml;
-			result.scrollTo = { type: 'question', number: questionNumber };
-			return result;
-		}
-
-		case 'add_questions': {
-			const newContent = args.new_content as string;
-			const position = (args.position as string) || 'end';
-			const refNumber = args.question_number as number | undefined;
-
-			if (!newContent) {
-				return {
-					success: false,
-					message:
-						'add_questions requires new_content with the HTML for new question(s).',
-				};
-			}
-
-			const parseResult = parseQuestions(documentHtml);
-
-			let insertIndex: number;
-			switch (position) {
-				case 'beginning':
-					insertIndex = 0;
-					break;
-				case 'before':
-					if (refNumber) {
-						insertIndex = parseResult.questions.findIndex(
-							(q) => q.number === refNumber
-						);
-						if (insertIndex === -1) insertIndex = 0;
-					} else {
-						insertIndex = 0;
-					}
-					break;
-				case 'after':
-					if (refNumber) {
-						insertIndex =
-							parseResult.questions.findIndex((q) => q.number === refNumber) + 1;
-						if (insertIndex === 0) insertIndex = parseResult.questions.length;
-					} else {
-						insertIndex = parseResult.questions.length;
-					}
-					break;
-				case 'end':
-				default:
-					insertIndex = parseResult.questions.length;
-					break;
-			}
-
-			// Parse the new content to get new questions
-			const newQuestionsParsed = parseQuestions(newContent);
-			if (newQuestionsParsed.questions.length > 0) {
-				// Insert parsed questions and renumber
-				const updatedQuestions = [...parseResult.questions];
-				updatedQuestions.splice(insertIndex, 0, ...newQuestionsParsed.questions);
-				const renumbered = renumberQuestions(updatedQuestions);
-				const newHtml = rebuildDocument(documentHtml, parseResult, renumbered);
-				const result = successMessage(
-					`Added ${newQuestionsParsed.questions.length} question(s) at position "${position}".`
-				);
-				result.newHtml = newHtml;
-
-				// Scroll to the first added question
-				const firstNewQuestionNumber =
-					position === 'beginning'
-						? 1
-						: position === 'before' && refNumber
-							? refNumber
-							: position === 'after' && refNumber
-								? refNumber + 1
-								: parseResult.questions.length + 1;
-
-				result.scrollTo = { type: 'question', number: firstNewQuestionNumber };
-				return result;
-			} else {
-				// New content didn't parse as questions — insert raw HTML
-				// After inserting, renumber all questions in the combined document
-				if (insertIndex === 0) {
-					const result = successMessage('Inserted content at the beginning.');
-					result.newHtml = renumberFullDocument(newContent + '\n' + documentHtml);
-					return result;
-				} else if (insertIndex >= parseResult.questions.length) {
-					const result = successMessage('Inserted content at the end.');
-					result.newHtml = renumberFullDocument(documentHtml + '\n' + newContent);
-					return result;
-				} else {
-					const insertPos = parseResult.questions[insertIndex].startIndex;
-					const result = successMessage('Inserted content.');
-					const combined =
-						documentHtml.substring(0, insertPos) +
-						newContent +
-						'\n' +
-						documentHtml.substring(insertPos);
-					result.newHtml = renumberFullDocument(combined);
-					return result;
-				}
-			}
-		}
-
-		case 'delete_question': {
-			const questionNumber = args.question_number as number;
-
-			if (!questionNumber) {
-				return {
-					success: false,
-					message: 'delete_question requires question_number.',
-				};
-			}
-
-			const parseResult = parseQuestions(documentHtml);
-			const targetIndex = parseResult.questions.findIndex(
-				(q) => q.number === questionNumber
-			);
-
-			if (targetIndex === -1) {
-				return {
-					success: false,
-					message:
-						`Question ${questionNumber} not found. ` +
-						`The document has questions: ${parseResult.questions.map((q) => q.number).join(', ')}.`,
-				};
-			}
-
-			const updatedQuestions = parseResult.questions.filter(
-				(q) => q.number !== questionNumber
-			);
-			const renumbered = renumberQuestions(updatedQuestions);
-			const newHtml = rebuildDocument(documentHtml, parseResult, renumbered);
-			const result = successMessage(
-				`Deleted question ${questionNumber}. Remaining questions renumbered.`
-			);
-			result.newHtml = newHtml;
-			// Scroll to previous question or top
-			result.scrollTo =
-				questionNumber > 1
-					? { type: 'question', number: questionNumber - 1 }
-					: { type: 'top' };
-			return result;
-		}
-
-		case 'edit_section': {
-			const newContent = args.new_content as string;
-			const snippetToReplace = args.html_snippet_to_replace as string;
-
-			if (snippetToReplace && newContent !== undefined) {
-				// Use snippet replace for section editing
-				return processSnippetReplace(
-					documentHtml,
-					snippetToReplace,
-					newContent,
-					accumulatedText
-				);
-			}
-			return {
-				success: false,
-				message: 'edit_section requires html_snippet_to_replace and new_content.',
-			};
-		}
-
 		case 'full_replace': {
 			const fullHtml = args.full_document_html as string;
 			if (fullHtml !== undefined && typeof fullHtml === 'string') {
+				validateFullReplace(documentHtml, fullHtml);
 				const result = successMessage(
 					fullHtml === ''
 						? 'Full document was cleared.'
@@ -611,8 +383,9 @@ function processSingleEdit(
 			const snippetToReplace = args.html_snippet_to_replace as string;
 			const replacementHtml = args.replacement_html as string;
 			const fullHtml = args.full_document_html as string;
+			const instruction = args.instruction as string;
 
-			// Support legacy calls without edit_type
+			// Support legacy calls without edit_type that provide full_document_html
 			if (typeof fullHtml === 'string') {
 				const result = successMessage(
 					fullHtml === ''
@@ -628,31 +401,30 @@ function processSingleEdit(
 					documentHtml,
 					snippetToReplace,
 					replacementHtml,
-					accumulatedText
+					accumulatedText,
+					instruction,
+					transport
 				);
-				if (res.success) {
-					res.scrollTo = { type: 'text', text: replacementHtml };
-				}
 				return res;
 			}
 
 			return {
 				success: false,
 				message:
-					'Invalid arguments. For snippet_replace provide html_snippet_to_replace + replacement_html. ' +
-					'For Q&A edits, prefer edit_question with question_number and field. ' +
-					'For full rewrites, use full_replace with full_document_html.',
+					'Invalid arguments. For snippet_replace provide html_snippet_to_replace + replacement_html + instruction. ' +
+					'For structural changes, use full_replace with full_document_html.',
 			};
 		}
 	}
 }
 
-export function processFunctionCalls(params: {
+export async function processFunctionCalls(params: {
 	functionCalls: any[] | undefined;
 	documentHtml: string;
 	accumulatedText: string;
-}): ProcessFunctionCallsResult {
-	const { functionCalls, documentHtml, accumulatedText } = params;
+	transport?: LLMTransport;
+}): Promise<ProcessFunctionCallsResult> {
+	const { functionCalls, documentHtml, accumulatedText, transport } = params;
 
 	if (!functionCalls || functionCalls.length === 0) {
 		return { success: true, message: 'No function calls to process.' };
@@ -681,11 +453,13 @@ export function processFunctionCalls(params: {
 
 	// Single edit — fast path (most common case)
 	if (editCalls.length === 1) {
-		return processSingleEdit(
+		const result = processSingleEdit(
 			editCalls[0].args as Record<string, unknown>,
 			documentHtml,
-			accumulatedText
+			accumulatedText,
+			transport
 		);
+		return maybeFixWithLLM(result, accumulatedText, transport);
 	}
 
 	// --- Multiple edits — process sequentially, cascading HTML ---
@@ -701,8 +475,10 @@ export function processFunctionCalls(params: {
 
 	for (let i = 0; i < editCalls.length; i++) {
 		const args = editCalls[i].args as Record<string, unknown>;
-		// Don't include accumulatedText in individual edit messages — we compose it at the end
-		const result = processSingleEdit(args, currentHtml, '');
+		let result = processSingleEdit(args, currentHtml, '', transport);
+
+		// Attempt LLM self-correction if needed
+		result = await maybeFixWithLLM(result, '', transport);
 
 		if (result.success && result.newHtml !== undefined) {
 			currentHtml = result.newHtml;
@@ -717,7 +493,6 @@ export function processFunctionCalls(params: {
 			console.warn(
 				`[processFunctionCalls] Edit ${i + 1}/${editCalls.length} failed: ${result.message}`
 			);
-			// Continue processing remaining edits — don't abort on partial failure
 		}
 	}
 
@@ -744,7 +519,6 @@ export function processFunctionCalls(params: {
 		newHtml: currentHtml,
 		toolUsageMessage,
 		message: `Processed ${editCalls.length} edits: ${successCount} succeeded, ${failures.length} failed.`,
-		// If multiple edits, collect all successful targets
 		scrollTargets: results
 			.map((r) => r.scrollTo)
 			.filter((t): t is ScrollTarget => !!t),
@@ -752,39 +526,84 @@ export function processFunctionCalls(params: {
 }
 
 /**
- * Infer legacy edit type from arguments when edit_type is not provided.
+ * If a snippet_replace result needs LLM self-correction, attempt it.
+ * Uses the secondary LLM to produce a corrected search string, then retries exact match.
+ */
+async function maybeFixWithLLM(
+	result: ProcessFunctionCallsResult,
+	accumulatedText: string,
+	transport?: LLMTransport
+): Promise<ProcessFunctionCallsResult> {
+	if (!result._needsLLMFix || !result._fixerParams || !transport) {
+		return result;
+	}
+
+	const { instruction, failedSearchString, replacementString, errorMessage, documentHtml } =
+		result._fixerParams;
+
+	const fixResult = await fixLLMEdit({
+		instruction,
+		failedSearchString,
+		replacementString,
+		errorMessage,
+		documentHtml,
+		transport,
+	});
+
+	if (fixResult.success && fixResult.correctedSearchString) {
+		const correctedResult = tryReplaceExact(
+			documentHtml,
+			fixResult.correctedSearchString,
+			replacementString
+		);
+
+		if (correctedResult !== null) {
+			const toolUsageMessage = accumulatedText
+				? `${accumulatedText}\n\n✅ *Document updated successfully.*`
+				: '✅ *Document updated successfully.*';
+			return {
+				success: true,
+				newHtml: correctedResult,
+				toolUsageMessage,
+				message: 'Snippet replacement succeeded (LLM self-correction).',
+				scrollTo: { type: 'text', text: replacementString },
+			};
+		}
+	}
+
+	return {
+		success: false,
+		message:
+			`The html_snippet_to_replace was not found in the document (tried exact, DOM, fuzzy, and LLM self-correction). ` +
+			'Try using snippet_replace with the exact HTML copied from the document, ' +
+			'or use full_replace with the complete updated document.',
+	};
+}
+
+/**
+ * Infer edit type from arguments when edit_type is not provided.
  */
 function inferEditType(args: Record<string, unknown>): string {
 	if (args.full_document_html !== undefined) return 'full_replace';
-	if (args.html_snippet_to_replace) return 'snippet_replace';
-	if (args.new_content && args.position) return 'add_questions';
-	if (args.question_number && args.field) return 'edit_question';
-	if (args.question_number && !args.field && !args.new_content)
-		return 'delete_question';
 	return 'snippet_replace';
 }
 
 /**
- * Re-parse the full document HTML and renumber all questions sequentially.
- * Used as a safety net when raw HTML is inserted and the structured
- * parse → splice → renumber path couldn't be used.
- */
-function renumberFullDocument(html: string): string {
-	const parsed = parseQuestions(html);
-	if (parsed.questions.length === 0) return html;
-
-	const renumbered = renumberQuestions(parsed.questions);
-	return rebuildDocument(html, parsed, renumbered);
-}
-
-/**
- * Process a snippet-based replacement (exact then fuzzy fallback).
+ * Process a snippet-based replacement with 3-layer matching + LLM self-correction.
+ *
+ * Matching layers (in order):
+ * 1. Exact string match
+ * 2. DOM-based matching (handles whitespace, entity, attribute differences)
+ * 3. Fuzzy regex fallback
+ * 4. LLM self-correction (secondary LLM call to fix the search string)
  */
 function processSnippetReplace(
 	documentHtml: string,
 	snippetToReplace: string,
 	replacementHtml: string,
-	accumulatedText: string
+	accumulatedText: string,
+	instruction?: string,
+	transport?: LLMTransport
 ): ProcessFunctionCallsResult {
 	const makeSuccess = (
 		html: string,
@@ -823,7 +642,7 @@ function processSnippetReplace(
 		return makeSuccess(domResult.html, `DOM — ${domResult.matchInfo}`);
 	}
 
-	// Layer 3: Fuzzy regex fallback (last resort)
+	// Layer 3: Fuzzy regex fallback
 	const fuzzyResult = tryReplaceFuzzy(
 		documentHtml,
 		snippetToReplace,
@@ -833,14 +652,67 @@ function processSnippetReplace(
 		return makeSuccess(fuzzyResult, 'fuzzy match');
 	}
 
+	// Layer 4: LLM self-correction (async — returns a pending result that
+	// the caller can await). Since processSingleEdit is synchronous,
+	// we store the fixer params so the caller can attempt async correction.
+	if (transport && instruction) {
+		return {
+			success: false,
+			_needsLLMFix: true,
+			_fixerParams: {
+				instruction,
+				failedSearchString: snippetToReplace,
+				replacementString: replacementHtml,
+				errorMessage: `Snippet not found after exact, DOM (${domResult.matchInfo}), and fuzzy matching.`,
+				documentHtml,
+			},
+			message:
+				`The html_snippet_to_replace was not found in the document (tried exact, DOM, and fuzzy matching). ` +
+				`${domResult.matchInfo}. LLM self-correction will be attempted.`,
+		} as ProcessFunctionCallsResult;
+	}
+
 	return {
 		success: false,
 		message:
 			`The html_snippet_to_replace was not found in the document (tried exact, DOM, and fuzzy matching). ` +
 			`${domResult.matchInfo}. ` +
-			'Try using semantic edit types instead: ' +
-			'(1) edit_question with question_number and field, ' +
-			'(2) delete_question with question_number, ' +
-			'(3) full_replace with full_document_html.',
+			'Try using snippet_replace with the exact HTML from the document, ' +
+			'or use full_replace with the complete updated document.',
 	};
+}
+
+/**
+ * Count question-like elements in HTML for validation.
+ * Looks for patterns like <strong>N. or <li><strong> that indicate questions.
+ */
+function countQuestionElements(html: string): number {
+	if (!html) return 0;
+	const pStrongPattern = html.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.)\-]/gi) || [];
+	const liStrongPattern = html.match(/<li[^>]*>\s*<strong[^>]*>/gi) || [];
+	return Math.max(pStrongPattern.length, liStrongPattern.length);
+}
+
+/**
+ * Lightweight post-edit validation for full_replace.
+ * Logs a warning if the question count changed unexpectedly.
+ * Does NOT block the edit — version history provides undo.
+ */
+function validateFullReplace(beforeHtml: string, afterHtml: string): void {
+	if (!beforeHtml || !afterHtml) return;
+
+	const beforeCount = countQuestionElements(beforeHtml);
+	const afterCount = countQuestionElements(afterHtml);
+
+	if (beforeCount > 0 && afterCount === 0) {
+		console.warn(
+			`[validateFullReplace] ⚠️ All ${beforeCount} questions were removed. ` +
+			'This may be unintentional. The user can undo via version history.'
+		);
+	} else if (beforeCount > 0 && Math.abs(afterCount - beforeCount) > beforeCount * 0.5) {
+		console.warn(
+			`[validateFullReplace] ⚠️ Question count changed significantly: ${beforeCount} → ${afterCount}. ` +
+			'Verify this was intentional.'
+		);
+	}
 }

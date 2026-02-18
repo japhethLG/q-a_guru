@@ -183,7 +183,7 @@ export const useChat = ({
 				}
 
 				// --- Process tool calls ---
-				const result = handleFunctionCalls(streamResult, latestHtml);
+				const result = await handleFunctionCalls(streamResult, latestHtml, transport);
 
 				// No function calls — normal text response, we're done
 				if (!result.newHtml && !result.toolResponse && result.success) {
@@ -330,7 +330,7 @@ export const useChat = ({
 
 					const retryResult = await processChatStream(retryStream);
 					if (retryResult.fullResponse) {
-						const result = handleFunctionCalls(retryResult, latestHtml);
+						const result = await handleFunctionCalls(retryResult, latestHtml, transport);
 
 						if (result.success && result.newHtml !== undefined) {
 							onDocumentEdit(

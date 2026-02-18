@@ -1,6 +1,6 @@
 /**
  * Parses Q&A HTML documents into structured question objects.
- * Enables semantic editing operations (edit by question number, add/delete questions).
+ * Used for read-only document inspection (read_document tool / summarizeDocument).
  */
 
 export interface ParsedQuestion {
@@ -170,116 +170,6 @@ function stripHtmlTags(html: string): string {
 }
 
 /**
- * Rebuild the document HTML after modifying questions.
- * Replaces each question's original HTML with updated content
- * while preserving preamble, postamble, and inter-question spacing.
- */
-export function rebuildDocument(
-	originalHtml: string,
-	originalParse: ParseResult,
-	updatedQuestions: ParsedQuestion[]
-): string {
-	if (originalParse.questions.length === 0) {
-		// No questions were parsed — can't rebuild, return original
-		return originalHtml;
-	}
-
-	// Build from parts: preamble + questions + postamble
-	const parts: string[] = [];
-
-	if (originalParse.preamble.trim()) {
-		parts.push(originalParse.preamble);
-	}
-
-	for (const q of updatedQuestions) {
-		parts.push(q.fullHtml);
-	}
-
-	if (originalParse.postamble.trim()) {
-		parts.push(originalParse.postamble);
-	}
-
-	return parts.join('\n');
-}
-
-/**
- * Update a specific field of a parsed question.
- * Returns a new ParsedQuestion with the field updated in fullHtml.
- */
-export function updateQuestionField(
-	question: ParsedQuestion,
-	field: string,
-	newContent: string
-): ParsedQuestion {
-	let updatedHtml = question.fullHtml;
-
-	switch (field) {
-		case 'question_text': {
-			// Replace the question text in the <p><strong>N: OLD_TEXT</strong></p> header
-			const headerRegex = new RegExp(
-				`(<p[^>]*>\\s*<strong[^>]*>\\s*${question.number}\\s*[:.\\)\\-]\\s*)${escapeRegExp(question.questionText)}(\\s*<\\/strong>\\s*<\\/p>)`,
-				'i'
-			);
-			updatedHtml = updatedHtml.replace(headerRegex, `$1${newContent}$2`);
-			return { ...question, questionText: newContent, fullHtml: updatedHtml };
-		}
-
-		case 'answer': {
-			// Replace the answer text — strategy depends on structure
-			if (question.answerText) {
-				// Try to replace the answer text wherever it appears in bold
-				const answerRegex = new RegExp(
-					`(<(?:strong|b)[^>]*>\\s*(?:Answer:\\s*)?)${escapeRegExp(question.answerText)}(\\s*<\\/(?:strong|b)>)`,
-					'i'
-				);
-				updatedHtml = updatedHtml.replace(answerRegex, `$1${newContent}$2`);
-			}
-			return { ...question, answerText: newContent, fullHtml: updatedHtml };
-		}
-
-		case 'reference': {
-			if (question.reference) {
-				const refRegex = new RegExp(
-					`(<(?:i|em)[^>]*>\\s*(?:Reference:\\s*))${escapeRegExp(question.reference)}(\\s*<\\/(?:i|em)>)`,
-					'i'
-				);
-				updatedHtml = updatedHtml.replace(refRegex, `$1${newContent}$2`);
-			}
-			return { ...question, reference: newContent, fullHtml: updatedHtml };
-		}
-
-		case 'full_question': {
-			// Replace the entire question HTML with the provided content
-			return { ...question, fullHtml: newContent };
-		}
-
-		default:
-			return question;
-	}
-}
-
-/**
- * Renumber questions sequentially starting from 1.
- */
-export function renumberQuestions(
-	questions: ParsedQuestion[]
-): ParsedQuestion[] {
-	return questions.map((q, i) => {
-		const newNumber = i + 1;
-		if (q.number === newNumber) return q;
-
-		// Update the number in the fullHtml
-		const headerRegex = new RegExp(
-			`(<p[^>]*>\\s*<strong[^>]*>\\s*)${q.number}(\\s*[:.\\)\\-])`,
-			'i'
-		);
-		const updatedHtml = q.fullHtml.replace(headerRegex, `$1${newNumber}$2`);
-
-		return { ...q, number: newNumber, fullHtml: updatedHtml };
-	});
-}
-
-/**
  * Generate a text summary of the document for the read_document tool.
  */
 export function summarizeDocument(parseResult: ParseResult): string {
@@ -312,11 +202,4 @@ export function summarizeDocument(parseResult: ParseResult): string {
 	}
 
 	return lines.join('\n');
-}
-
-/**
- * Escape special regex characters in a string.
- */
-function escapeRegExp(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
