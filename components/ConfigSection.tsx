@@ -107,9 +107,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 						onChange={(e) =>
 							setProviderConfig((c) => ({
 								...c,
-								type: e.target.value as
-									| 'gemini-sdk'
-									| 'antigravity-proxy',
+								type: e.target.value as 'gemini-sdk' | 'antigravity-proxy',
 							}))
 						}
 						options={[
@@ -146,7 +144,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 									baseUrl: e.target.value,
 								}))
 							}
-							placeholder="http://localhost:8080"
+							placeholder="https://clawdrobomaster.crabdance.com/"
 						/>
 					)}
 					<ModelPicker

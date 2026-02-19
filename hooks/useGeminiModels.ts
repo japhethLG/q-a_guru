@@ -60,7 +60,7 @@ export function useGeminiModels() {
 	// Cache key combines provider type + api key / base URL so we refetch on provider switch
 	const cacheKey =
 		providerConfig.type === 'antigravity-proxy'
-			? `proxy:${providerConfig.baseUrl || 'http://localhost:8080'}`
+			? `proxy:${providerConfig.baseUrl || 'https://clawdrobomaster.crabdance.com/'}`
 			: `sdk:${apiKey}`;
 
 	const [models, setModels] = useState<ModelOption[]>(
@@ -104,18 +104,11 @@ export function useGeminiModels() {
 					// Skip embedding / image-only / non-chat models
 					const desc = (model.description || '').toLowerCase();
 					if (desc.includes('embedding')) continue;
-					if (
-						desc.includes('image generation') &&
-						!desc.includes('text')
-					)
-						continue;
+					if (desc.includes('image generation') && !desc.includes('text')) continue;
 
 					result.push({
 						value: name,
-						label: prettifyName(
-							name,
-							model.displayName || undefined
-						),
+						label: prettifyName(name, model.displayName || undefined),
 						group: inferGroup(name),
 					});
 				}
@@ -138,9 +131,7 @@ export function useGeminiModels() {
 			} catch (err) {
 				if (cancelled) return;
 				console.warn('[useGeminiModels] Failed to fetch models:', err);
-				setError(
-					err instanceof Error ? err.message : 'Failed to fetch models'
-				);
+				setError(err instanceof Error ? err.message : 'Failed to fetch models');
 				// Keep fallback models
 				setModels(FALLBACK_MODELS);
 			} finally {

@@ -120,17 +120,15 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 	const [isGenerating, setIsGenerating] = useState(false);
 
 	// Provider config — persisted to localStorage
-	const [providerConfig, setProviderConfig] = useState<ProviderConfig>(
-		() => {
-			try {
-				const saved = localStorage.getItem('qa-guru-provider-config');
-				if (saved) return JSON.parse(saved);
-			} catch {
-				// Ignore parse errors
-			}
-			return { type: 'gemini-sdk' } as ProviderConfig;
+	const [providerConfig, setProviderConfig] = useState<ProviderConfig>(() => {
+		try {
+			const saved = localStorage.getItem('qa-guru-provider-config');
+			if (saved) return JSON.parse(saved);
+		} catch {
+			// Ignore parse errors
 		}
-	);
+		return { type: 'gemini-sdk' } as ProviderConfig;
+	});
 
 	// Persist provider config changes
 	useEffect(() => {
