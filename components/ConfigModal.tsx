@@ -78,11 +78,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 		setTimeout(() => setIsTemplateModalOpen(true), 0);
 	};
 
-	const handleGenerate = () => {
-		onGenerate();
-		onClose();
-	};
-
 	return (
 		<>
 			<Modal
@@ -90,21 +85,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 				onClose={onClose}
 				title="Generation Settings"
 				size="xl"
-				footer={
-					<div className="flex justify-end gap-2">
-						<Button variant="secondary" onClick={onClose}>
-							Close
-						</Button>
-						<Button
-							variant="primary"
-							onClick={handleGenerate}
-							disabled={isDisabled}
-							icon={<SparklesIcon className="h-5 w-5" />}
-						>
-							Generate Q&A
-						</Button>
-					</div>
-				}
 			>
 				<div className="space-y-6">
 					{/* LLM Provider Settings */}

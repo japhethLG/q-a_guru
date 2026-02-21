@@ -36,7 +36,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 		return (
 			<div className="flex h-full flex-col items-center justify-center text-center text-gray-500">
 				<WandIcon className="mb-2 h-10 w-10" />
-				<p className="text-sm">
+				<p className="text-sm max-w-sm">
 					Select text in the editor to get contextual actions, or type a general
 					question below.
 				</p>
