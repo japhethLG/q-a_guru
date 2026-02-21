@@ -3,6 +3,7 @@ import {
 	ChatMessage,
 	ChatConfig,
 	QaConfig,
+	ImageAttachment,
 	SelectionMetadata,
 	ScrollTarget,
 } from '../types';
@@ -42,7 +43,10 @@ interface UseChatReturn {
 	chatConfig: ChatConfig;
 	setInput: (value: string) => void;
 	setChatConfig: (config: ChatConfig) => void;
-	handleSendMessage: (prompt?: string) => Promise<void>;
+	handleSendMessage: (
+		prompt?: string,
+		images?: ImageAttachment[]
+	) => Promise<void>;
 	handleEditMessage: (index: number, newContent: string) => Promise<void>;
 	handleRetryMessage: (index: number) => Promise<void>;
 	handleRetryAIMessage: (index: number) => Promise<void>;
@@ -137,11 +141,16 @@ export const useChat = ({
 	 */
 	const sendMessageWithContext = async (
 		messageToSend: string,
-		contextMessages: ChatMessage[]
+		contextMessages: ChatMessage[],
+		images?: ImageAttachment[]
 	) => {
 		if (!messageToSend.trim()) return;
 
-		const userMessage: ChatMessage = { role: 'user', content: messageToSend };
+		const userMessage: ChatMessage = {
+			role: 'user',
+			content: messageToSend,
+			...(images?.length ? { images } : {}),
+		};
 		const updatedMessages = [...contextMessages, userMessage];
 
 		setIsLoading(true);
@@ -174,7 +183,8 @@ export const useChat = ({
 					chatConfig.model,
 					qaConfig,
 					abortControllerRef.current!.signal,
-					transport
+					transport,
+					iteration === 1 ? images : undefined // Only send images on first iteration
 				);
 
 				const streamResult = await processChatStream(responseStream);
@@ -386,12 +396,15 @@ export const useChat = ({
 		}
 	};
 
-	const handleSendMessage = async (prompt?: string) => {
+	const handleSendMessage = async (
+		prompt?: string,
+		images?: ImageAttachment[]
+	) => {
 		const messageToSend = prompt || input;
-		if (!messageToSend.trim()) return;
+		if (!messageToSend.trim() && !images?.length) return;
 
 		setInput('');
-		await sendMessageWithContext(messageToSend, messages);
+		await sendMessageWithContext(messageToSend, messages, images);
 	};
 
 	const handleEditMessage = async (index: number, newContent: string) => {

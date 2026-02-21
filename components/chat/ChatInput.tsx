@@ -3,10 +3,12 @@ import React, {
 	useEffect,
 	useMemo,
 	useCallback,
+	useState,
 	DragEvent,
 	ChangeEvent,
+	ClipboardEvent,
 } from 'react';
-import { SelectionMetadata } from '../../types';
+import { SelectionMetadata, ImageAttachment } from '../../types';
 import { Button, Modal } from '../common';
 import { ModelPicker } from '../common/ModelPicker';
 import {
@@ -22,7 +24,7 @@ import { useAppContext } from '../../contexts/AppContext';
 interface ChatInputProps {
 	input: string;
 	onInputChange: (value: string) => void;
-	onSendMessage: (enrichedMessage?: string) => void;
+	onSendMessage: (enrichedMessage?: string, images?: ImageAttachment[]) => void;
 	onStopGeneration: () => void;
 	isLoading: boolean;
 	selectedText: SelectionMetadata | null;
@@ -181,6 +183,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 	const [isDragging, setIsDragging] = React.useState(false);
 	const [isResetConfirmOpen, setIsResetConfirmOpen] = React.useState(false);
 	const [hasContent, setHasContent] = React.useState(false);
+	const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(
+		[]
+	);
 	const { qaConfig, setQaConfig, setSelectedText } = useAppContext();
 	const lastProcessedContextRef = useRef<SelectionMetadata | null>(null);
 
@@ -286,9 +291,37 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
 	const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files.length > 0) {
-			onFilesAdd(Array.from(e.target.files));
+			const allFiles = Array.from(e.target.files);
+			const imageFiles = allFiles.filter((f) => f.type.startsWith('image/'));
+			const docFiles = allFiles.filter((f) => !f.type.startsWith('image/'));
+			if (docFiles.length > 0) onFilesAdd(docFiles);
+			if (imageFiles.length > 0) addImageFiles(imageFiles);
 		}
 		e.target.value = '';
+	};
+
+	/** Convert a File to an ImageAttachment (base64) */
+	const fileToImageAttachment = (file: File): Promise<ImageAttachment> =>
+		new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result as string;
+				// Strip the data URL prefix (e.g. "data:image/png;base64,")
+				const base64 = result.split(',')[1];
+				resolve({ data: base64, mimeType: file.type, name: file.name });
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(file);
+		});
+
+	/** Add image files to the attachments */
+	const addImageFiles = async (imageFiles: File[]) => {
+		const attachments = await Promise.all(imageFiles.map(fileToImageAttachment));
+		setImageAttachments((prev) => [...prev, ...attachments]);
+	};
+
+	const handleRemoveImage = (index: number) => {
+		setImageAttachments((prev) => prev.filter((_, i) => i !== index));
 	};
 
 	const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -306,9 +339,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		setIsDragging(false);
 		if (isLoading) return;
 		if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-			onFilesAdd(Array.from(e.dataTransfer.files));
+			const allFiles = Array.from(e.dataTransfer.files);
+			const imageFiles = allFiles.filter((f) => f.type.startsWith('image/'));
+			const docFiles = allFiles.filter((f) => !f.type.startsWith('image/'));
+			if (docFiles.length > 0) onFilesAdd(docFiles);
+			if (imageFiles.length > 0) addImageFiles(imageFiles);
 		}
 	};
+
+	// Paste handler — intercept images from clipboard
+	const handlePaste = useCallback((e: ClipboardEvent<HTMLDivElement>) => {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+
+		const imageItems: DataTransferItem[] = [];
+		for (let i = 0; i < items.length; i++) {
+			if (items[i].type.startsWith('image/')) {
+				imageItems.push(items[i]);
+			}
+		}
+
+		if (imageItems.length > 0) {
+			e.preventDefault();
+			const pastedFiles = imageItems
+				.map((item) => item.getAsFile())
+				.filter((f): f is File => f !== null);
+			if (pastedFiles.length > 0) addImageFiles(pastedFiles);
+		}
+	}, []);
 
 	// Send handler — parse contentEditable and build enriched message
 	const handleSend = useCallback(() => {
@@ -316,16 +374,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		if (!el || isLoading) return;
 
 		const { text } = parseContentEditableToMessage(el);
-		if (!text && files.length === 0) return;
+		if (!text && files.length === 0 && imageAttachments.length === 0) return;
+
+		// Capture images before clearing
+		const imagesToSend =
+			imageAttachments.length > 0 ? [...imageAttachments] : undefined;
 
 		// Clear the editable
 		el.innerHTML = '';
 		setHasContent(false);
 		onInputChange('');
 		lastProcessedContextRef.current = null;
+		setImageAttachments([]);
 
-		onSendMessage(text || undefined);
-	}, [isLoading, files.length, onSendMessage, onInputChange]);
+		onSendMessage(text || undefined, imagesToSend);
+	}, [isLoading, files.length, imageAttachments, onSendMessage, onInputChange]);
 
 	// Handle keyDown on contentEditable
 	const handleKeyDown = useCallback(
@@ -338,7 +401,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		[isLoading, handleSend]
 	);
 
-	const canSend = hasContent || files.length > 0;
+	const canSend = hasContent || files.length > 0 || imageAttachments.length > 0;
 	const hasContextChips =
 		editableRef.current?.querySelector('[data-context-chip]') !== null;
 
@@ -445,6 +508,38 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 					</div>
 				)}
 
+				{/* Image attachment previews */}
+				{imageAttachments.length > 0 && (
+					<div className="px-4 pt-3">
+						<div className="flex flex-wrap gap-2">
+							{imageAttachments.map((img, index) => (
+								<div
+									key={`img-${index}`}
+									className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-600/50 bg-gray-600/40"
+								>
+									<img
+										src={`data:${img.mimeType};base64,${img.data}`}
+										alt={img.name || 'Image attachment'}
+										className="h-full w-full object-cover"
+									/>
+									<Button
+										variant="icon"
+										size="sm"
+										onClick={(e) => {
+											e.stopPropagation();
+											handleRemoveImage(index);
+										}}
+										className="absolute top-0.5 right-0.5 rounded-full! bg-gray-900/70! p-0.5! text-gray-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/80! hover:text-white"
+										title="Remove image"
+									>
+										<XIcon className="h-3 w-3" />
+									</Button>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
+
 				{/* ContentEditable input with inline context chips */}
 				<div className="px-4 pt-3 pb-1">
 					<div
@@ -452,6 +547,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 						contentEditable={!isLoading}
 						onInput={updateContentState}
 						onKeyDown={handleKeyDown}
+						onPaste={handlePaste}
 						onClick={(e) => {
 							const target = e.target as HTMLElement;
 							const chip = target.closest('[data-context-chip="true"]') as HTMLElement;
@@ -555,7 +651,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 				ref={fileInputRef}
 				type="file"
 				multiple
-				accept=".pdf,.docx,.pptx,.txt"
+				accept=".pdf,.docx,.pptx,.txt,image/*"
 				onChange={handleFileInputChange}
 				className="hidden"
 			/>

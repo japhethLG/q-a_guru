@@ -8,6 +8,7 @@ import {
 	QaConfig,
 	ChatConfig,
 	ChatMessage,
+	ImageAttachment,
 	SelectionMetadata,
 	ScrollTarget,
 } from '../types';
@@ -123,7 +124,8 @@ export const getChatResponseStream = async function* (
 	model: string = 'gemini-3-flash-preview',
 	qaConfig?: QaConfig | null,
 	signal?: AbortSignal,
-	transport?: LLMTransport
+	transport?: LLMTransport,
+	images?: ImageAttachment[]
 ): AsyncGenerator<GenerateContentResponse, void, unknown> {
 	const effectiveTransport =
 		transport ||
@@ -147,11 +149,21 @@ export const getChatResponseStream = async function* (
 	const fullSystemInstruction = baseSystemInstruction + dynamicSuffix;
 
 	const geminiHistory = history
-		.filter((m) => m.role !== 'system' && m.content && m.content.trim() !== '')
-		.map((message) => ({
-			role: message.role,
-			parts: [{ text: message.content }],
-		}));
+		.filter((m) => m.role !== 'system' && (m.content?.trim() || m.images?.length))
+		.map((message) => {
+			const parts: any[] = [];
+			// Add image parts first (if any)
+			if (message.images?.length) {
+				for (const img of message.images) {
+					parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+				}
+			}
+			// Add text part
+			if (message.content?.trim()) {
+				parts.push({ text: message.content });
+			}
+			return { role: message.role, parts };
+		});
 
 	const userPrompt = prompts.getUserPrompt(
 		newMessage,
@@ -211,10 +223,19 @@ export const getChatResponseStream = async function* (
 				]
 			: [];
 
+	// Build the final user message parts (images + text)
+	const userParts: any[] = [];
+	if (images?.length) {
+		for (const img of images) {
+			userParts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+		}
+	}
+	userParts.push({ text: userPrompt });
+
 	const contents = [
 		...sourceDocContext,
 		...geminiHistory,
-		{ role: 'user', parts: [{ text: userPrompt }] },
+		{ role: 'user', parts: userParts },
 	];
 
 	try {

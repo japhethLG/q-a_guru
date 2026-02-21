@@ -208,6 +208,26 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 					<span>Loading...</span>
 				</div>
 			)}
+			{/* Render attached images */}
+			{message.images && message.images.length > 0 && (
+				<div className="mb-2 flex flex-wrap gap-2">
+					{message.images.map((img, idx) => (
+						<a
+							key={idx}
+							href={`data:${img.mimeType};base64,${img.data}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="block overflow-hidden rounded-lg"
+						>
+							<img
+								src={`data:${img.mimeType};base64,${img.data}`}
+								alt={img.name || 'Attached image'}
+								className="max-h-48 max-w-full rounded-lg object-contain"
+							/>
+						</a>
+					))}
+				</div>
+			)}
 			<div className="wrap-break-words overflow-hidden">
 				<ChatMessageContent
 					content={message.content}

@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { ChatConfig, SelectionMetadata, ScrollTarget } from '../types';
+import {
+	ChatConfig,
+	ImageAttachment,
+	SelectionMetadata,
+	ScrollTarget,
+} from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useChat } from '../hooks/useChat';
 import { ChatMessageList, ChatInput } from './chat';
@@ -116,7 +121,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			<ChatInput
 				input={input}
 				onInputChange={setInput}
-				onSendMessage={(enrichedMessage) => handleSendMessage(enrichedMessage)}
+				onSendMessage={(enrichedMessage, images) =>
+					handleSendMessage(enrichedMessage, images)
+				}
 				onStopGeneration={handleStopGeneration}
 				isLoading={isLoading}
 				selectedText={selectedText}

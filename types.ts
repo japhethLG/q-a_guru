@@ -27,9 +27,16 @@ export interface ChatConfig {
 	model: string;
 }
 
+export interface ImageAttachment {
+	data: string; // base64-encoded image data
+	mimeType: string; // e.g. "image/png", "image/jpeg", "image/webp"
+	name?: string; // original file name
+}
+
 export interface ChatMessage {
 	role: 'user' | 'model' | 'system'; // System role added for internal messages
 	content: string;
+	images?: ImageAttachment[]; // Inline image attachments
 	thinking?: string; // Thinking tokens from Gemini
 	thinkingStartTime?: number; // Timestamp when thinking started
 	sources?: GroundingSource[];
