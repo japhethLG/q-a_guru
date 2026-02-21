@@ -238,6 +238,10 @@ export const getChatResponseStream = async function* (
 			config.tools = [{ functionDeclarations: tools }];
 		}
 
+		if (signal) {
+			config.abortSignal = signal;
+		}
+
 		const response = effectiveTransport.generateContentStream({
 			model: model,
 			contents: contents,

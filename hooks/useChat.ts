@@ -191,6 +191,12 @@ export const useChat = ({
 					transport
 				);
 
+				if (abortControllerRef.current?.signal.aborted) {
+					const abortError = new Error('Aborted');
+					abortError.name = 'AbortError';
+					throw abortError;
+				}
+
 				// No function calls — normal text response, we're done
 				if (!result.newHtml && !result.toolResponse && result.success) {
 					break;

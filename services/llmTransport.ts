@@ -199,13 +199,19 @@ export function createProxyTransport(baseUrl: string): LLMTransport {
 				spreadConfigToBody(params.config, body);
 			}
 
+			const fetchOptions: RequestInit = {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			};
+
+			if (params.config && params.config.abortSignal) {
+				fetchOptions.signal = params.config.abortSignal;
+			}
+
 			const response = await fetch(
 				`${normalizedBase}/v1/chat/completions?response_format=google`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(body),
-				}
+				fetchOptions
 			);
 
 			if (!response.ok) {
@@ -227,13 +233,19 @@ export function createProxyTransport(baseUrl: string): LLMTransport {
 				spreadConfigToBody(params.config, body);
 			}
 
+			const fetchOptions: RequestInit = {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			};
+
+			if (params.config && params.config.abortSignal) {
+				fetchOptions.signal = params.config.abortSignal;
+			}
+
 			const response = await fetch(
 				`${normalizedBase}/v1/chat/completions?response_format=google`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(body),
-				}
+				fetchOptions
 			);
 
 			if (!response.ok) {
