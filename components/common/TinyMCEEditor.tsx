@@ -3,10 +3,85 @@ import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEInstance } from 'tinymce';
 import { SelectionMetadata, ScrollTarget } from '../../types';
 
+/** Build SelectionMetadata from current editor selection */
+const buildSelectionMetadata = (
+	editor: TinyMCEInstance
+): SelectionMetadata | null => {
+	try {
+		const selectedHtml = editor.selection.getContent({ format: 'html' });
+		const selectedText = editor.selection.getContent({ format: 'text' });
+
+		if (!selectedText || !selectedText.trim()) return null;
+
+		const fullContent = editor.getContent({ format: 'text' });
+		const range = editor.selection.getRng();
+		if (!range) return null;
+
+		const selectedTextNormalized = selectedText.trim();
+		const startIndex = fullContent.indexOf(selectedTextNormalized);
+		let startOffset = startIndex;
+		let endOffset = startIndex + selectedTextNormalized.length;
+
+		if (startIndex === -1) {
+			const body = editor.getBody();
+			const rangeClone = range.cloneRange();
+			rangeClone.setStart(body, 0);
+			rangeClone.setEnd(range.startContainer, range.startOffset);
+			const beforeContent = rangeClone.toString();
+			startOffset = beforeContent.length;
+			endOffset = startOffset + selectedTextNormalized.length;
+		}
+
+		const textBeforeStart = fullContent.substring(0, startOffset);
+		const startLine = textBeforeStart.split('\n').length;
+		const selectedLines = selectedTextNormalized.split('\n');
+		const endLine = startLine + selectedLines.length - 1;
+
+		const contextBefore = fullContent.substring(
+			Math.max(0, startOffset - 100),
+			startOffset
+		);
+		const contextAfter = fullContent.substring(
+			endOffset,
+			Math.min(fullContent.length, endOffset + 100)
+		);
+
+		return {
+			selectedText: selectedTextNormalized,
+			selectedHtml: selectedHtml || selectedTextNormalized,
+			startLine,
+			endLine,
+			startOffset,
+			endOffset,
+			contextBefore: contextBefore || undefined,
+			contextAfter: contextAfter || undefined,
+		};
+	} catch (error) {
+		console.error('Error building selection metadata:', error);
+		const fallbackText = editor.selection.getContent({ format: 'text' });
+		if (fallbackText && fallbackText.trim()) {
+			const fallbackHtml = editor.selection.getContent({ format: 'html' });
+			const fullContent = editor.getContent({ format: 'text' });
+			const idx = fullContent.indexOf(fallbackText.trim());
+			const startLine =
+				idx >= 0 ? fullContent.substring(0, idx).split('\n').length : 1;
+			return {
+				selectedText: fallbackText.trim(),
+				selectedHtml: fallbackHtml || fallbackText.trim(),
+				startLine,
+				endLine: startLine,
+				startOffset: idx >= 0 ? idx : 0,
+				endOffset: idx >= 0 ? idx + fallbackText.trim().length : 0,
+			};
+		}
+		return null;
+	}
+};
+
 interface TinyMCEEditorProps {
 	value: string;
 	onChange?: (content: string) => void;
-	onSelectionChange?: (selection: SelectionMetadata | null) => void;
+	onAddToChat?: (selection: SelectionMetadata) => void;
 	disabled?: boolean;
 	onInit?: (editor: TinyMCEInstance) => void;
 	height?: string | number;
@@ -25,7 +100,7 @@ interface TinyMCEEditorProps {
 export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 	value,
 	onChange,
-	onSelectionChange,
+	onAddToChat,
 	disabled = false,
 	onInit,
 	height = '100%',
@@ -70,107 +145,11 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 		[onChange]
 	);
 
-	const handleSelectionChange = useCallback(() => {
-		const editor = editorRef.current;
-		if (!editor || !onSelectionChange) return;
-
-		try {
-			const selectedHtml = editor.selection.getContent({ format: 'html' });
-			const selectedText = editor.selection.getContent({ format: 'text' });
-
-			// If no selection, pass null
-			if (!selectedText || !selectedText.trim()) {
-				onSelectionChange(null);
-				return;
-			}
-
-			// Get the full document content as plain text for line number calculation
-			const fullContent = editor.getContent({ format: 'text' });
-
-			// Get selection range
-			const range = editor.selection.getRng();
-			if (!range) {
-				onSelectionChange(null);
-				return;
-			}
-
-			// Calculate start and end offsets in plain text
-			// For HTML content, we need to approximate the position
-			// We'll use the selected text position in the full content
-			const selectedTextNormalized = selectedText.trim();
-			const startIndex = fullContent.indexOf(selectedTextNormalized);
-
-			// If we can't find exact match, try to find approximate position
-			let startOffset = startIndex;
-			let endOffset = startIndex + selectedTextNormalized.length;
-
-			if (startIndex === -1) {
-				// Fallback: count characters before selection using range
-				// Get content before selection from the editor
-				const body = editor.getBody();
-				const rangeClone = range.cloneRange();
-				rangeClone.setStart(body, 0);
-				rangeClone.setEnd(range.startContainer, range.startOffset);
-				const beforeContent = rangeClone.toString();
-				startOffset = beforeContent.length;
-				endOffset = startOffset + selectedTextNormalized.length;
-			}
-
-			// Calculate line numbers
-			const textBeforeStart = fullContent.substring(0, startOffset);
-			const startLine = textBeforeStart.split('\n').length;
-			const selectedLines = selectedTextNormalized.split('\n');
-			const endLine = startLine + selectedLines.length - 1;
-
-			// Get surrounding context (100 chars before and after)
-			const contextBefore = fullContent.substring(
-				Math.max(0, startOffset - 100),
-				startOffset
-			);
-			const contextAfter = fullContent.substring(
-				endOffset,
-				Math.min(fullContent.length, endOffset + 100)
-			);
-
-			const metadata: SelectionMetadata = {
-				selectedText: selectedTextNormalized,
-				selectedHtml: selectedHtml || selectedTextNormalized,
-				startLine,
-				endLine,
-				startOffset,
-				endOffset,
-				contextBefore: contextBefore || undefined,
-				contextAfter: contextAfter || undefined,
-			};
-
-			onSelectionChange(metadata);
-		} catch (error) {
-			console.error('Error capturing selection metadata:', error);
-			// Fallback to simple text selection
-			const selectedText = editor.selection.getContent({ format: 'text' });
-			if (selectedText && selectedText.trim()) {
-				const selectedHtml = editor.selection.getContent({ format: 'html' });
-				const fullContent = editor.getContent({ format: 'text' });
-				const startIndex = fullContent.indexOf(selectedText.trim());
-				const startLine =
-					startIndex >= 0
-						? fullContent.substring(0, startIndex).split('\n').length
-						: 1;
-
-				const metadata: SelectionMetadata = {
-					selectedText: selectedText.trim(),
-					selectedHtml: selectedHtml || selectedText.trim(),
-					startLine,
-					endLine: startLine,
-					startOffset: startIndex >= 0 ? startIndex : 0,
-					endOffset: startIndex >= 0 ? startIndex + selectedText.trim().length : 0,
-				};
-				onSelectionChange(metadata);
-			} else {
-				onSelectionChange(null);
-			}
-		}
-	}, [onSelectionChange]);
+	// Ref to keep onAddToChat callback fresh for TinyMCE setup closure
+	const onAddToChatRef = useRef(onAddToChat);
+	useEffect(() => {
+		onAddToChatRef.current = onAddToChat;
+	}, [onAddToChat]);
 
 	// Update editor content when value prop changes
 	useEffect(() => {
@@ -285,7 +264,6 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 			}}
 			value={value}
 			onEditorChange={handleEditorChange}
-			onSelectionChange={handleSelectionChange}
 			disabled={disabled}
 			apiKey={`${import.meta.env.VITE_TINYMCE_API_KEY as string}`}
 			init={{
@@ -301,6 +279,18 @@ export const TinyMCEEditor: React.FC<TinyMCEEditorProps> = ({
 				resize,
 				branding,
 				statusbar,
+				setup: (editor: TinyMCEInstance) => {
+					editor.ui.registry.addButton('addtochat', {
+						text: '💬 Chat',
+						tooltip: 'Add selected text as chat context',
+						onAction: () => {
+							const metadata = buildSelectionMetadata(editor);
+							if (metadata) {
+								onAddToChatRef.current?.(metadata);
+							}
+						},
+					});
+				},
 				...(quickbarsSelectionToolbar && {
 					quickbars_selection_toolbar: quickbarsSelectionToolbar,
 				}),

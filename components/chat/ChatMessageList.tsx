@@ -12,6 +12,7 @@ interface ChatMessageListProps {
 	onRetryMessage?: (index: number) => void;
 	onRetryAIMessage?: (index: number) => void;
 	onCopyMessage?: (content: string) => void;
+	onContextClick?: (previewText: string) => void;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -23,6 +24,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 	onRetryMessage,
 	onRetryAIMessage,
 	onCopyMessage,
+	onContextClick,
 }) => {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -30,17 +32,20 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	}, [messages]);
 
+	if (messages.length === 0 && !isLoading) {
+		return (
+			<div className="flex h-full flex-col items-center justify-center text-center text-gray-500">
+				<WandIcon className="mb-2 h-10 w-10" />
+				<p className="text-sm">
+					Select text in the editor to get contextual actions, or type a general
+					question below.
+				</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="grow space-y-6 overflow-x-hidden overflow-y-auto p-3">
-			{messages.length === 0 && !isLoading && (
-				<div className="flex h-[calc(100%-100px)] flex-col items-center justify-center text-center text-gray-500">
-					<WandIcon className="mb-2 h-10 w-10" />
-					<p className="text-sm">
-						Select text in the editor to get contextual actions, or type a general
-						question below.
-					</p>
-				</div>
-			)}
 			{messages.map((msg, index) => {
 				const isLastMessage = index === messages.length - 1;
 				const isStreamingState = isLastMessage && isStreamingText;
@@ -70,6 +75,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 										: undefined
 							}
 							onCopy={onCopyMessage ? () => onCopyMessage(msg.content) : undefined}
+							onContextClick={onContextClick}
 						/>
 					</div>
 				);

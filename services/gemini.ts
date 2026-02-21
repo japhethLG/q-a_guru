@@ -22,64 +22,6 @@ import { LLMTransport, createSDKTransport } from './llmTransport';
 import { fixLLMEdit } from './llmEditFixer';
 
 /**
- * Generates questions and answers based on provided documents and configuration.
- * Returns an async generator that yields streaming responses.
- */
-export const generateQaStream = async function* (
-	documents: string[],
-	config: QaConfig,
-	apiKey?: string,
-	signal?: AbortSignal,
-	transport?: LLMTransport
-): AsyncGenerator<GenerateContentResponse, void, unknown> {
-	const effectiveTransport =
-		transport ||
-		createSDKTransport(apiKey || import.meta.env.VITE_GEMINI_API_KEY);
-
-	// Get template if selected
-	const selectedTemplate = config.selectedTemplateId
-		? getTemplateById(config.selectedTemplateId)
-		: null;
-
-	// Build config with template
-	const promptConfig = {
-		count: config.count,
-		type: config.type,
-		difficulty: config.difficulty,
-		instructions: config.instructions,
-		...(selectedTemplate && {
-			template: {
-				templateString: selectedTemplate.templateString,
-			},
-		}),
-	};
-
-	const prompt = prompts.getQAPrompt(documents, promptConfig);
-
-	try {
-		// Use generateContentStream for streaming responses
-		const response = effectiveTransport.generateContentStream({
-			model: config.model,
-			contents: prompt,
-		});
-
-		for await (const chunk of await response) {
-			if (signal?.aborted) {
-				break;
-			}
-			yield chunk;
-		}
-	} catch (error) {
-		// Check if it was an abort error
-		if (error instanceof Error && error.name === 'AbortError') {
-			throw error;
-		}
-		console.error('Error generating Q&A:', error);
-		throw error;
-	}
-};
-
-/**
  * Analyzes an image with a user-provided prompt.
  */
 export const analyzeImage = async (
@@ -538,8 +480,13 @@ async function maybeFixWithLLM(
 		return result;
 	}
 
-	const { instruction, failedSearchString, replacementString, errorMessage, documentHtml } =
-		result._fixerParams;
+	const {
+		instruction,
+		failedSearchString,
+		replacementString,
+		errorMessage,
+		documentHtml,
+	} = result._fixerParams;
 
 	const fixResult = await fixLLMEdit({
 		instruction,
@@ -688,7 +635,8 @@ function processSnippetReplace(
  */
 function countQuestionElements(html: string): number {
 	if (!html) return 0;
-	const pStrongPattern = html.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.)\-]/gi) || [];
+	const pStrongPattern =
+		html.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.)\-]/gi) || [];
 	const liStrongPattern = html.match(/<li[^>]*>\s*<strong[^>]*>/gi) || [];
 	return Math.max(pStrongPattern.length, liStrongPattern.length);
 }
@@ -707,12 +655,15 @@ function validateFullReplace(beforeHtml: string, afterHtml: string): void {
 	if (beforeCount > 0 && afterCount === 0) {
 		console.warn(
 			`[validateFullReplace] ⚠️ All ${beforeCount} questions were removed. ` +
-			'This may be unintentional. The user can undo via version history.'
+				'This may be unintentional. The user can undo via version history.'
 		);
-	} else if (beforeCount > 0 && Math.abs(afterCount - beforeCount) > beforeCount * 0.5) {
+	} else if (
+		beforeCount > 0 &&
+		Math.abs(afterCount - beforeCount) > beforeCount * 0.5
+	) {
 		console.warn(
 			`[validateFullReplace] ⚠️ Question count changed significantly: ${beforeCount} → ${afterCount}. ` +
-			'Verify this was intentional.'
+				'Verify this was intentional.'
 		);
 	}
 }

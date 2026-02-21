@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../../types';
-import { ChatMessageContent, Button, Textarea, ThinkingSection } from '../common';
+import {
+	ChatMessageContent,
+	Button,
+	Textarea,
+	ThinkingSection,
+} from '../common';
 import { LoaderIcon, CopyIcon, EditIcon, RefreshCwIcon } from '../common/Icons';
 
 interface ChatMessageBubbleProps {
@@ -11,6 +16,7 @@ interface ChatMessageBubbleProps {
 	onRetry?: () => void;
 	onCopy?: () => void;
 	messageIndex?: number;
+	onContextClick?: (previewText: string) => void;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -21,6 +27,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 	onRetry,
 	onCopy,
 	messageIndex,
+	onContextClick,
 }) => {
 	const [isHovered, setIsHovered] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -187,8 +194,8 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 
 			{/* Show thinking section for AI messages with thinking tokens */}
 			{isAI && message.thinking && (
-				<ThinkingSection 
-					thinking={message.thinking} 
+				<ThinkingSection
+					thinking={message.thinking}
 					isStreaming={isStreaming}
 					thinkingStartTime={message.thinkingStartTime}
 				/>
@@ -210,6 +217,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 							: '[&_strong]:text-cyan-300'
 					}`}
 					onHighlight={onHighlight}
+					onContextClick={onContextClick}
 				/>
 			</div>
 		</div>

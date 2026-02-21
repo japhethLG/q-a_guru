@@ -23,6 +23,7 @@ interface SelectProps
 	helperText?: string;
 	fullWidth?: boolean;
 	required?: boolean;
+	dropdownDirection?: 'down' | 'up';
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -34,6 +35,7 @@ export const Select: React.FC<SelectProps> = ({
 	helperText,
 	fullWidth = true,
 	required = false,
+	dropdownDirection = 'down',
 	className = '',
 	disabled = false,
 	...props
@@ -136,7 +138,11 @@ export const Select: React.FC<SelectProps> = ({
 				</div>
 
 				{isOpen && !disabled && (
-					<div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-600 bg-gray-700 shadow-2xl">
+					<div
+						className={`absolute z-50 max-h-60 w-full overflow-auto rounded-md border border-gray-600 bg-gray-700 shadow-2xl ${
+							dropdownDirection === 'up' ? 'bottom-full mb-1' : 'mt-1'
+						}`}
+					>
 						{Object.entries(groupedOptions).map(([groupName, groupOptions]) => (
 							<div key={groupName}>
 								{groupName !== 'default' && (

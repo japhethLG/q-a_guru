@@ -8,6 +8,7 @@ interface ModelPickerProps {
 	label?: string;
 	size?: 'sm' | 'md' | 'lg';
 	disabled?: boolean;
+	dropdownDirection?: 'down' | 'up';
 }
 
 /**
@@ -20,6 +21,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 	label = 'Model',
 	size = 'md',
 	disabled = false,
+	dropdownDirection = 'up',
 }) => {
 	const { models, isLoading } = useGeminiModels();
 
@@ -32,6 +34,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 			onChange={(e) => onChange(e.target.value)}
 			disabled={disabled || isLoading}
 			helperText={isLoading ? 'Loading models…' : undefined}
+			dropdownDirection={dropdownDirection}
 		/>
 	);
 };

@@ -1,8 +1,8 @@
 import React from 'react';
 
-export const SparklesIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
-	props
-) => (
+export const SparklesIcon: React.FC<
+	React.ImgHTMLAttributes<HTMLImageElement>
+> = (props) => (
 	<img src={`${import.meta.env.BASE_URL}logo.png`} alt="Sparkles" {...props} />
 );
 
@@ -352,7 +352,9 @@ export const SettingsIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	</svg>
 );
 
-export const TemplateIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+export const TemplateIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
+	props
+) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
 		width="24"
@@ -373,7 +375,9 @@ export const TemplateIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => 
 	</svg>
 );
 
-export const QuestionIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+export const QuestionIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
+	props
+) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
 		width="24"
@@ -389,5 +393,51 @@ export const QuestionIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => 
 		<circle cx="12" cy="12" r="10" />
 		<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
 		<line x1="12" y1="17" x2="12.01" y2="17" />
+	</svg>
+);
+
+export const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		{...props}
+	>
+		<line x1="12" y1="5" x2="12" y2="19" />
+		<line x1="5" y1="12" x2="19" y2="12" />
+	</svg>
+);
+
+export const SendIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="currentColor"
+		stroke="none"
+		{...props}
+	>
+		<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+	</svg>
+);
+
+export const StopIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="currentColor"
+		stroke="none"
+		{...props}
+	>
+		<rect x="6" y="6" width="12" height="12" rx="2" />
 	</svg>
 );

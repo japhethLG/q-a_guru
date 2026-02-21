@@ -1,29 +1,13 @@
-import React, { useRef, ChangeEvent, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { DocumentVersion, ScrollTarget } from '../types';
-import { parseFile } from '../services/parser';
-import { generateQaStream } from '../services/gemini';
-import { stripCodeBlockWrappers } from '../utils/contentHelpers';
-import { FileUploadSection } from './FileUploadSection';
-import { ConfigSection } from './ConfigSection';
 import { EditorSection } from './EditorSection';
 import { ChatSection } from './ChatSection';
 import { useAppContext } from '../contexts/AppContext';
 
 export const QAGenerator: React.FC = () => {
 	const {
-		files,
-		setFiles,
-		documentsContent,
-		setDocumentsContent,
-		qaConfig,
-		setQaConfig,
-		setGenerationConfig,
 		editorContent,
 		setEditorContent,
-		isParsing,
-		setIsParsing,
-		isGenerating,
-		setIsGenerating,
 		selectedText,
 		setSelectedText,
 		isEditorDirty,
@@ -35,18 +19,11 @@ export const QAGenerator: React.FC = () => {
 		previewVersionId,
 		setPreviewVersionId,
 		highlightedContent,
-		setHighlightedContent,
-		transport,
 	} = useAppContext();
 	const [pendingScrolls, setPendingScrolls] = React.useState<ScrollTarget[]>([]);
 
-	const abortControllerRef = useRef<AbortController | null>(null);
-
 	const normalizeText = (text: string) => {
-		return text
-			.replace(/\s+/g, ' ') // Collapse all whitespace to single spaces
-			.trim() // Remove leading/trailing whitespace
-			.toLowerCase(); // Case-insensitive comparison
+		return text.replace(/\s+/g, ' ').trim().toLowerCase();
 	};
 
 	const convertToPlainText = (html: string) => {
@@ -56,7 +33,6 @@ export const QAGenerator: React.FC = () => {
 	};
 
 	useEffect(() => {
-		// Only validate when editor content changes, not when text is first selected
 		if (selectedText && editorContent) {
 			const editorPlainText = normalizeText(convertToPlainText(editorContent));
 			const selectedPlainText = normalizeText(
@@ -67,112 +43,7 @@ export const QAGenerator: React.FC = () => {
 				setSelectedText(null);
 			}
 		}
-	}, [editorContent]); // Only depend on editorContent, not selectedText
-
-	const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-		const selectedFiles = Array.from(e.target.files || []) as File[];
-		if (selectedFiles.length === 0) return;
-
-		// Don't update files here - FileUploadSection manages that
-		// Just parse the new files and update documentsContent
-		setIsParsing(true);
-
-		try {
-			const parsedContents = await Promise.all(
-				selectedFiles.map((file) => parseFile(file))
-			);
-			setDocumentsContent((prev) => [...prev, ...parsedContents]);
-		} catch (error) {
-			console.error('Error parsing files:', error);
-			alert(
-				'There was an error parsing one or more files. Please check the console.'
-			);
-			// Also need to remove the files that failed to parse
-			setFiles((prev) => prev.filter((f) => !selectedFiles.includes(f)));
-		} finally {
-			setIsParsing(false);
-		}
-	};
-
-	const handleGenerate = async () => {
-		if (documentsContent.length === 0) {
-			alert('Please upload at least one document.');
-			return;
-		}
-
-		// Capture current config as generation config
-		setGenerationConfig(qaConfig);
-
-		setIsGenerating(true);
-		setEditorContent('');
-
-		// Create new AbortController for this generation
-		abortControllerRef.current = new AbortController();
-
-		try {
-			const responseStream = generateQaStream(
-				documentsContent,
-				qaConfig,
-				qaConfig.apiKey,
-				abortControllerRef.current.signal,
-				transport
-			);
-
-			// Accumulate streaming text
-			let accumulatedText = '';
-
-			for await (const chunk of await responseStream) {
-				// Check if aborted
-				if (abortControllerRef.current?.signal.aborted) {
-					break;
-				}
-
-				if (chunk.text) {
-					accumulatedText += chunk.text;
-					// Strip code block wrappers during streaming for real-time display
-					const cleanedText = stripCodeBlockWrappers(accumulatedText);
-					setEditorContent(cleanedText);
-				}
-			}
-
-			// Only create version if not aborted
-			if (!abortControllerRef.current?.signal.aborted && accumulatedText) {
-				// Strip code block wrappers from final content before storing
-				const cleanedContent = stripCodeBlockWrappers(accumulatedText);
-				const initialVersion: DocumentVersion = {
-					id: crypto.randomUUID(),
-					timestamp: Date.now(),
-					content: cleanedContent,
-					reason: 'Initial generation',
-				};
-				setVersionHistory([initialVersion]);
-				setCurrentVersionId(initialVersion.id);
-				setIsEditorDirty(false);
-				setPreviewVersionId(null);
-				// Update editor content with cleaned version
-				setEditorContent(cleanedContent);
-			}
-		} catch (error) {
-			// Check if it was an abort error
-			if (error instanceof Error && error.name === 'AbortError') {
-				console.log('Generation aborted by user');
-			} else {
-				console.error('Error generating Q&A:', error);
-				setEditorContent(
-					'<p><strong>Error:</strong> Failed to generate Q&A. Please check the console for details.</p>'
-				);
-			}
-		} finally {
-			setIsGenerating(false);
-			abortControllerRef.current = null;
-		}
-	};
-
-	const handleStopGeneration = () => {
-		if (abortControllerRef.current) {
-			abortControllerRef.current.abort();
-		}
-	};
+	}, [editorContent]);
 
 	const handleDocumentEdit = (
 		newHtml: string,
@@ -253,7 +124,6 @@ export const QAGenerator: React.FC = () => {
 
 	const handleExitPreview = () => {
 		if (versionHistory.length > 0) {
-			// Find the latest version (last item in array, since versions are chronological oldest-first)
 			const latestVersion = versionHistory[versionHistory.length - 1];
 			setEditorContent(latestVersion.content);
 			setCurrentVersionId(latestVersion.id);
@@ -267,41 +137,37 @@ export const QAGenerator: React.FC = () => {
 		: editorContent;
 
 	return (
-		<div className="grid h-full grid-cols-1 gap-6 xl:grid-cols-12">
-			<div className="flex min-h-0 flex-col gap-6 xl:col-span-3">
-				<FileUploadSection onFileChange={handleFileChange} />
-				<ConfigSection onGenerate={handleGenerate} onStop={handleStopGeneration} />
+		<div className="grid h-full grid-cols-1 gap-6 lg:grid-cols-3">
+			<div className="flex min-h-0 overflow-hidden lg:col-span-2">
+				<EditorSection
+					content={contentToDisplay}
+					onContentChange={setEditorContent}
+					onTextSelect={setSelectedText}
+					onDirtyChange={setIsEditorDirty}
+					isPreviewing={!!previewVersionId}
+					onExitPreview={handleExitPreview}
+					onSave={handleSaveVersion}
+					isEditorDirty={isEditorDirty}
+					versions={versionHistory}
+					currentVersionId={currentVersionId}
+					previewVersionId={previewVersionId}
+					onPreview={handlePreview}
+					onRevert={handleRevert}
+					onDelete={handleDeleteVersion}
+					highlightedContent={highlightedContent}
+					scrollTargets={pendingScrolls}
+					onScrollHandled={() => setPendingScrolls([])}
+				/>
 			</div>
-
-			<div className="grid h-full grid-cols-1 grid-rows-2 gap-6 overflow-hidden lg:grid-cols-3 lg:grid-rows-1 xl:col-span-9">
-				<div className="flex min-h-0 overflow-hidden lg:col-span-2">
-					<EditorSection
-						content={contentToDisplay}
-						onContentChange={setEditorContent}
-						onTextSelect={setSelectedText}
-						onDirtyChange={setIsEditorDirty}
-						isPreviewing={!!previewVersionId}
-						onExitPreview={handleExitPreview}
-						onSave={handleSaveVersion}
-						isEditorDirty={isEditorDirty}
-						versions={versionHistory}
-						currentVersionId={currentVersionId}
-						previewVersionId={previewVersionId}
-						onPreview={handlePreview}
-						onRevert={handleRevert}
-						onDelete={handleDeleteVersion}
-						highlightedContent={highlightedContent}
-						scrollTargets={pendingScrolls}
-						onScrollHandled={() => setPendingScrolls([])}
-					/>
-				</div>
-				<div className="flex min-h-0 overflow-hidden lg:col-span-1">
-					<ChatSection
-						documentHtml={editorContent}
-						selectedText={selectedText}
-						onDocumentEdit={handleDocumentEdit}
-					/>
-				</div>
+			<div className="flex min-h-0 overflow-hidden lg:col-span-1">
+				<ChatSection
+					documentHtml={editorContent}
+					selectedText={selectedText}
+					onDocumentEdit={handleDocumentEdit}
+					onContextClick={(previewText) =>
+						setPendingScrolls([{ type: 'text', text: previewText }])
+					}
+				/>
 			</div>
 		</div>
 	);

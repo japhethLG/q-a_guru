@@ -4,103 +4,25 @@
 
 import { getTemplateById } from './templateStorage';
 import { parseQuestions } from './documentParser';
+import { QaConfig } from '../types';
 
 export const prompts = {
 	/**
-	 * Generates a prompt for Q&A generation based on documents and configuration
+	 * Builds a chat message that instructs the AI to generate Q&A via the edit_document tool.
+	 * Used by the quick-generate flow (replaces the old one-shot getQAPrompt).
 	 */
-	getQAPrompt: (
-		documents: string[],
-		config: {
-			count: number;
-			type: string;
-			difficulty: string;
-			instructions?: string;
-			template?: {
-				templateString: string;
-			};
+	buildGenerationPrompt: (config: QaConfig, templateString?: string) => {
+		let prompt = `Generate ${config.count} ${config.type} questions at ${config.difficulty} difficulty from the uploaded source documents.`;
+		prompt += `\nUse the edit_document tool with edit_type="full_replace" to write the Q&A directly into the document editor.`;
+		prompt += `\nOutput ONLY clean HTML — no markdown, no code blocks.`;
+		if (templateString) {
+			prompt += `\nFollow the configured Q&A template format EXACTLY. Preserve ALL HTML tags, line breaks, and spacing from the template.`;
 		}
-	) => {
-		const combinedDocuments = documents.join('\n\n---\n\n');
-
-		// If template is provided, use it
-		if (config.template) {
-			return `Generate ${config.count} ${config.type} questions from the provided documents.
-
-CRITICAL: Output ONLY HTML. No markdown, no explanations.
-
-⚠️ CRITICAL FORMATTING RULE: DO NOT wrap your HTML output in markdown code blocks (like \`\`\`html ... \`\`\`). Output the HTML directly without any code block wrappers. The system expects raw HTML that will be rendered directly.
-
-CORRECT OUTPUT (what we want):
-<p><strong>1. Question here?</strong></p>
-<p>Answer here.</p>
-
-INCORRECT OUTPUT (what we DON'T want):
-\`\`\`html
-<p><strong>1. Question here?</strong></p>
-<p>Answer here.</p>
-\`\`\`
-
-Configuration:
-- Question type: ${config.type}
-- Difficulty: ${config.difficulty}
-${config.instructions ? `- Additional Instructions: ${config.instructions}` : ''}
-
-⚠️ CRITICAL: You MUST follow this EXACT HTML template format precisely. The template defines ALL formatting, including how answers are displayed. Preserve ALL HTML tags, line breaks, spacing, and structure exactly as shown in the template.
-
-Template to follow EXACTLY (preserve all line breaks and spacing):
-
-\`\`\`
-${config.template.templateString}
-\`\`\`
-
-VARIABLE REPLACEMENT RULES:
-- [number] → Question number (1, 2, 3, etc.)
-- [question] → The question text
-- [statement] → True/false statement
-- [answer] → Correct answer
-- [correct_answer] → True or False
-- [reference] → Source citation
-- [page] → Page number
-- [source] → Document name
-- [choice1], [choice2], [choice3], [choice4] → Answer choices
-- [letter] → Answer letter (a, b, c, d)
-- [keywords] → Key terms
-- [rubric] → Grading expectations
-
-OUTPUT REQUIREMENTS:
-1. Output HTML only - follow the template structure EXACTLY
-2. DO NOT wrap output in markdown code blocks (\`\`\`html ... \`\`\`)
-3. Output raw HTML directly - start with the first tag from the template
-4. Preserve EXACT line breaks and spacing from template
-5. Include ALL HTML tags shown in template (<b>, <i>, <strong>, <ul>, <li>, etc.) exactly as they appear
-6. The template defines all formatting - do NOT modify or add formatting beyond what's in the template
-7. Generate ${config.count} complete questions in this format
-
---- SOURCE DOCUMENTS ---
-${combinedDocuments}
---- END DOCUMENTS ---
-`;
+		if (config.instructions) {
+			prompt += `\nAdditional instructions: ${config.instructions}`;
 		}
-
-		// Default prompt without template
-		return `
-        Based on the following document(s), please generate a set of questions and answers.
-
-        Configuration:
-        - Number of questions: ${config.count}
-        - Question type: ${config.type}
-        - Difficulty: ${config.difficulty}
-        ${config.instructions ? `- Additional Instructions: ${config.instructions}` : ''}
-
-        Format the output as clean HTML. Each question should be in a <p> tag with bold text (e.g., <p><strong>1. What is the capital of France?</strong></p>), and the answer should follow in a separate <p> tag (e.g., <p>The capital of France is Paris.</p>). For multiple choice questions, provide options in an ordered list.
-
-        ⚠️ CRITICAL: DO NOT wrap your HTML output in markdown code blocks (like \`\`\`html ... \`\`\`). Output the HTML directly without any code block wrappers. Start with <p> tags immediately.
-
-        --- DOCUMENT START ---
-        ${combinedDocuments}
-        --- DOCUMENT END ---
-    `;
+		prompt += `\nAfter the tool call, briefly confirm what was generated (count, type, difficulty).`;
+		return prompt;
 	},
 
 	/**
@@ -184,6 +106,14 @@ NEVER call edit_document without explanation. Always provide reasoning before an
 - Do NOT paste the HTML content you plan to insert into the chat. The user will see the result in the document editor.
 - If you need to show a preview of content, describe it in markdown (e.g., bullet lists), NOT raw HTML.
 </agentic_behavior>
+
+<generation_mode>
+When the user asks you to generate a set of Q&A questions (e.g., "Generate 10 questions"):
+1. Use edit_document with edit_type="full_replace" to write ALL questions into the document
+2. Follow the configured template format EXACTLY if one is provided in <qa_config>
+3. Output raw HTML directly — no markdown code blocks
+4. After the tool call, briefly confirm what was generated (count, type, difficulty)
+</generation_mode>
 
 `;
 

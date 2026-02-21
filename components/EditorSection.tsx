@@ -73,7 +73,9 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 
 	// Handle selection change
 	const handleSelectionChange = (selection: SelectionMetadata | null) => {
-		onTextSelect(selection);
+		if (selection) {
+			onTextSelect(selection);
+		}
 	};
 
 	// Handle Ctrl+S / Cmd+S keyboard shortcut
@@ -179,7 +181,7 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
 				<TinyMCEEditor
 					value={content}
 					onChange={handleEditorChange}
-					onSelectionChange={handleSelectionChange}
+					onAddToChat={handleSelectionChange}
 					disabled={isPreviewing}
 					onInit={(editor) => (editorRef.current = editor)}
 					toolbar={TINYMCE_TOOLBAR}

@@ -49,6 +49,6 @@ export const TINYMCE_TOOLBAR =
 
 // Quickbars configuration - most used actions for context menus
 export const TINYMCE_QUICKBARS_SELECTION_TOOLBAR =
-	'bold italic | quicklink blockquote | forecolor backcolor';
+	'bold italic | quicklink blockquote | forecolor backcolor | addtochat';
 export const TINYMCE_QUICKBARS_INSERT_TOOLBAR =
 	'quickimage quicktable | hr pagebreak';

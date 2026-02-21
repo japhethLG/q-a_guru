@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChatConfig, SelectionMetadata, ScrollTarget } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useChat } from '../hooks/useChat';
-import { ChatHeader, ChatMessageList, ChatInput } from './chat';
+import { ChatMessageList, ChatInput } from './chat';
+import { ConfigModal } from './ConfigModal';
+import { parseFile } from '../services/parser';
 
 interface ChatSectionProps {
 	documentHtml: string;
@@ -13,21 +15,29 @@ interface ChatSectionProps {
 		scrollTo?: ScrollTarget,
 		scrollTargets?: ScrollTarget[]
 	) => void;
+	onContextClick?: (previewText: string) => void;
 }
 
 export const ChatSection: React.FC<ChatSectionProps> = ({
 	documentHtml,
 	selectedText,
 	onDocumentEdit,
+	onContextClick,
 }) => {
 	const {
 		documentsContent,
+		setDocumentsContent,
 		qaConfig,
-		generationConfig,
+		files,
+		setFiles,
+		isParsing,
+		setIsParsing,
 		setHighlightedContent,
 		setSelectedText,
 		transport,
 	} = useAppContext();
+
+	const [isConfigOpen, setIsConfigOpen] = useState(false);
 
 	const {
 		messages,
@@ -43,12 +53,12 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		handleRetryAIMessage,
 		handleStopGeneration,
 		handleResetChat,
+		handleQuickGenerate,
 	} = useChat({
 		documentHtml,
 		selectedText,
 		documentsContent,
 		qaConfig,
-		generationConfig,
 		chatConfig: { model: 'gemini-3-flash-preview' },
 		transport,
 		onDocumentEdit,
@@ -62,16 +72,35 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		}
 	};
 
+	// File handling — add new files and parse them
+	const handleFilesAdd = async (newFiles: File[]) => {
+		// Add to file list immediately
+		setFiles((prev) => [...prev, ...newFiles]);
+
+		// Parse in background
+		setIsParsing(true);
+		try {
+			const parsedContents = await Promise.all(
+				newFiles.map((file) => parseFile(file))
+			);
+			setDocumentsContent((prev) => [...prev, ...parsedContents]);
+		} catch (error) {
+			console.error('Error parsing files:', error);
+			alert('There was an error parsing one or more files.');
+			// Remove files that failed to parse
+			setFiles((prev) => prev.filter((f) => !newFiles.includes(f)));
+		} finally {
+			setIsParsing(false);
+		}
+	};
+
+	const handleFileRemove = (index: number) => {
+		setFiles((prev) => prev.filter((_, i) => i !== index));
+		setDocumentsContent((prev) => prev.filter((_, i) => i !== index));
+	};
+
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden rounded-lg bg-gray-800 shadow-lg">
-			<ChatHeader
-				chatConfig={chatConfig}
-				onConfigChange={setChatConfig}
-				onReset={handleResetChat}
-				hasMessages={messages.length > 0}
-				isLoading={isLoading}
-			/>
-
 			<ChatMessageList
 				messages={messages}
 				isStreamingText={isStreamingText}
@@ -81,17 +110,35 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				onRetryMessage={handleRetryMessage}
 				onRetryAIMessage={handleRetryAIMessage}
 				onCopyMessage={handleCopyMessage}
+				onContextClick={onContextClick}
 			/>
 
 			<ChatInput
 				input={input}
 				onInputChange={setInput}
-				onSendMessage={() => handleSendMessage()}
+				onSendMessage={(enrichedMessage) => handleSendMessage(enrichedMessage)}
 				onStopGeneration={handleStopGeneration}
 				isLoading={isLoading}
 				selectedText={selectedText}
 				onActionButtonClick={(prompt) => handleSendMessage(prompt)}
 				onClearContext={() => setSelectedText(null)}
+				onQuickGenerate={handleQuickGenerate}
+				hasDocuments={files.length > 0}
+				hasEditorContent={!!documentHtml.trim()}
+				files={files}
+				onFilesAdd={handleFilesAdd}
+				onFileRemove={handleFileRemove}
+				isParsing={isParsing}
+				onOpenSettings={() => setIsConfigOpen(true)}
+				onResetChat={handleResetChat}
+				hasMessages={messages.length > 0}
+				onContextClick={onContextClick}
+			/>
+
+			<ConfigModal
+				isOpen={isConfigOpen}
+				onClose={() => setIsConfigOpen(false)}
+				onGenerate={handleQuickGenerate}
 			/>
 		</div>
 	);

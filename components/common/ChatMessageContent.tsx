@@ -85,6 +85,7 @@ interface ChatMessageContentProps {
 	content: string;
 	className?: string;
 	onHighlight?: (content: string | null) => void;
+	onContextClick?: (previewText: string) => void;
 }
 
 /**
@@ -148,8 +149,24 @@ export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 	content,
 	className = '',
 	onHighlight,
+	onContextClick,
 }) => {
-	const processedContent = preprocessContent(content);
+	// Preprocess to convert [CONTEXT: ...] blocks into custom <context-chip> tags
+	// Pattern matches: [CONTEXT: Lines X-Y] followed by \n"""content"""
+	const CONTEXT_PATTERN = /\[CONTEXT:\s*(.+?)\]\n"""([\s\S]*?)"""/g;
+	let processedContent = content.replace(
+		CONTEXT_PATTERN,
+		(match, lines, text) => {
+			// Extract a preview from the HTML/text content
+			const plainText = text.replace(/<[^>]*>?/gm, '').trim();
+			const preview = plainText.substring(0, 40).replace(/"/g, '&quot;');
+			return `<context-chip data-lines="${lines}" data-preview="${preview}"></context-chip>`;
+		}
+	);
+
+	// Preprocess to handle raw HTML blocks
+	processedContent = preprocessContent(processedContent);
+
 	return (
 		<div className={`markdown-content w-full ${className}`}>
 			<style>{`
@@ -196,162 +213,205 @@ export const ChatMessageContent: React.FC<ChatMessageContentProps> = ({
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				rehypePlugins={[rehypeRaw, rehypeHighlight]}
-				components={{
-					p: ({ children }) => (
-						<p className="mb-3 leading-relaxed wrap-break-word last:mb-0">
-							{children}
-						</p>
-					),
-					h1: ({ children }) => (
-						<h1 className="mt-3 mb-2 text-xl font-bold wrap-break-word text-cyan-400">
-							{children}
-						</h1>
-					),
-					h2: ({ children }) => (
-						<h2 className="mt-3 mb-2 text-lg font-bold wrap-break-word text-cyan-400">
-							{children}
-						</h2>
-					),
-					h3: ({ children }) => (
-						<h3 className="mt-3 mb-2 text-base font-semibold wrap-break-word text-cyan-300">
-							{children}
-						</h3>
-					),
-					ul: ({ children }) => (
-						<ul className="mb-3 ml-4 list-disc space-y-2 marker:text-cyan-400">
-							{children}
-						</ul>
-					),
-					ol: ({ children }) => (
-						<ol className="mb-3 ml-4 list-decimal space-y-2 marker:text-cyan-400">
-							{children}
-						</ol>
-					),
-					li: ({ children }) => (
-						<li className="ml-2 pl-1 wrap-break-word">{children}</li>
-					),
-					strong: ({ children }) => (
-						<strong className="font-semibold text-cyan-200">{children}</strong>
-					),
-					em: ({ children }) => <em className="text-cyan-100 italic">{children}</em>,
-					code: ({ node, inline, className, children, ...props }: any) => {
-						const match = /language-(\w+)/.exec(className || '');
-						return inline ? (
-							<code
-								className="rounded border border-gray-700 bg-gray-800/70 px-1.5 py-0.5 font-mono text-sm wrap-break-word text-cyan-300"
-								{...props}
-							>
+				components={
+					{
+						p: ({ children }) => (
+							<p className="mb-3 leading-relaxed wrap-break-word last:mb-0">
 								{children}
-							</code>
-						) : (
-							<code
-								className={`block rounded-lg border border-gray-700 bg-gray-900 p-3 font-mono text-sm whitespace-pre ${className || ''}`}
-								{...props}
-							>
+							</p>
+						),
+						h1: ({ children }) => (
+							<h1 className="mt-3 mb-2 text-xl font-bold wrap-break-word text-cyan-400">
 								{children}
-							</code>
-						);
-					},
-					pre: ({ children }: any) => {
-						// Helper function to extract text from children recursively
-						const extractText = (node: any): string => {
-							if (typeof node === 'string') return node;
-							if (typeof node === 'number') return String(node);
-							if (!node) return '';
-							if (Array.isArray(node)) {
-								return node.map(extractText).join('');
-							}
-							if (typeof node === 'object' && node.props) {
-								return extractText(node.props.children);
-							}
-							return '';
-						};
-
-						// Check if this is a code block with syntax highlighting
-						const codeChild = React.Children.toArray(children).find((child: any) =>
-							child?.props?.className?.includes('language-')
-						);
-
-						if (codeChild) {
-							const codeElement = (codeChild as any).props;
-							const languageMatch = /language-(\w+)/.exec(codeElement.className || '');
-							const language = languageMatch?.[1];
-							const codeString = extractText(codeElement.children).replace(/\n$/, '');
-
-							return (
-								<CodeBlock
-									language={language}
-									code={codeString}
-									onHighlight={onHighlight}
-								/>
+							</h1>
+						),
+						h2: ({ children }) => (
+							<h2 className="mt-3 mb-2 text-lg font-bold wrap-break-word text-cyan-400">
+								{children}
+							</h2>
+						),
+						h3: ({ children }) => (
+							<h3 className="mt-3 mb-2 text-base font-semibold wrap-break-word text-cyan-300">
+								{children}
+							</h3>
+						),
+						ul: ({ children }) => (
+							<ul className="mb-3 ml-4 list-disc space-y-2 marker:text-cyan-400">
+								{children}
+							</ul>
+						),
+						ol: ({ children }) => (
+							<ol className="mb-3 ml-4 list-decimal space-y-2 marker:text-cyan-400">
+								{children}
+							</ol>
+						),
+						li: ({ children }) => (
+							<li className="ml-2 pl-1 wrap-break-word">{children}</li>
+						),
+						strong: ({ children }) => (
+							<strong className="font-semibold text-cyan-200">{children}</strong>
+						),
+						em: ({ children }) => (
+							<em className="text-cyan-100 italic">{children}</em>
+						),
+						code: ({ node, inline, className, children, ...props }: any) => {
+							const match = /language-(\w+)/.exec(className || '');
+							return inline ? (
+								<code
+									className="rounded border border-gray-700 bg-gray-800/70 px-1.5 py-0.5 font-mono text-sm wrap-break-word text-cyan-300"
+									{...props}
+								>
+									{children}
+								</code>
+							) : (
+								<code
+									className={`block rounded-lg border border-gray-700 bg-gray-900 p-3 font-mono text-sm whitespace-pre ${className || ''}`}
+									{...props}
+								>
+									{children}
+								</code>
 							);
-						}
+						},
+						pre: ({ children }: any) => {
+							// Helper function to extract text from children recursively
+							const extractText = (node: any): string => {
+								if (typeof node === 'string') return node;
+								if (typeof node === 'number') return String(node);
+								if (!node) return '';
+								if (Array.isArray(node)) {
+									return node.map(extractText).join('');
+								}
+								if (typeof node === 'object' && node.props) {
+									return extractText(node.props.children);
+								}
+								return '';
+							};
 
-						// Regular pre element without syntax highlighting
-						return (
-							<pre className="mb-3 max-w-full overflow-x-auto rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-inner">
+							// Check if this is a code block with syntax highlighting
+							const codeChild = React.Children.toArray(children).find((child: any) =>
+								child?.props?.className?.includes('language-')
+							);
+
+							if (codeChild) {
+								const codeElement = (codeChild as any).props;
+								const languageMatch = /language-(\w+)/.exec(
+									codeElement.className || ''
+								);
+								const language = languageMatch?.[1];
+								const codeString = extractText(codeElement.children).replace(/\n$/, '');
+
+								return (
+									<CodeBlock
+										language={language}
+										code={codeString}
+										onHighlight={onHighlight}
+									/>
+								);
+							}
+
+							// Regular pre element without syntax highlighting
+							return (
+								<pre className="mb-3 max-w-full overflow-x-auto rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-inner">
+									{children}
+								</pre>
+							);
+						},
+						a: ({ children, href }) => (
+							<a
+								href={href}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="break-all text-cyan-400 underline transition-colors hover:text-cyan-300"
+							>
 								{children}
-							</pre>
-						);
-					},
-					a: ({ children, href }) => (
-						<a
-							href={href}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="break-all text-cyan-400 underline transition-colors hover:text-cyan-300"
-						>
-							{children}
-						</a>
-					),
-					blockquote: ({ children }) => (
-						<blockquote className="my-3 rounded-r border-l-4 border-cyan-500 bg-gray-800/50 py-2 pl-3 wrap-break-word text-gray-400 italic">
-							{children}
-						</blockquote>
-					),
-					details: ({ node, children }: any) => <details>{children}</details>,
-					summary: ({ children }: any) => (
-						<summary className="details-summary">
-							<span className="details-arrow">▶</span>
-							{children}
-						</summary>
-					),
-					hr: () => (
-						<div className="my-6 flex items-center">
-							<div className="flex-grow border-t border-gray-600"></div>
-							<div className="mx-2 text-cyan-400">•</div>
-							<div className="flex-grow border-t border-gray-600"></div>
-						</div>
-					),
-					table: ({ children }) => (
-						<div className="mb-3 max-w-full overflow-x-auto">
-							<table className="min-w-full border-collapse rounded-lg text-sm">
+							</a>
+						),
+						blockquote: ({ children }) => (
+							<blockquote className="my-3 rounded-r border-l-4 border-cyan-500 bg-gray-800/50 py-2 pl-3 wrap-break-word text-gray-400 italic">
 								{children}
-							</table>
-						</div>
-					),
-					thead: ({ children }) => (
-						<thead className="border-b-2 border-cyan-500 bg-gray-800">
-							{children}
-						</thead>
-					),
-					tbody: ({ children }) => (
-						<tbody className="bg-gray-900/50">{children}</tbody>
-					),
-					tr: ({ children }) => (
-						<tr className="border-b border-gray-700 transition-colors last:border-b-0 hover:bg-gray-800/30">
-							{children}
-						</tr>
-					),
-					th: ({ children }) => (
-						<th className="px-3 py-2 text-left font-semibold wrap-break-word text-cyan-400">
-							{children}
-						</th>
-					),
-					td: ({ children }) => (
-						<td className="px-3 py-2 wrap-break-word">{children}</td>
-					),
-				}}
+							</blockquote>
+						),
+						details: ({ node, children }: any) => <details>{children}</details>,
+						summary: ({ children }: any) => (
+							<summary className="details-summary">
+								<span className="details-arrow">▶</span>
+								{children}
+							</summary>
+						),
+						hr: () => (
+							<div className="my-6 flex items-center">
+								<div className="grow border-t border-gray-600"></div>
+								<div className="mx-2 text-cyan-400">•</div>
+								<div className="grow border-t border-gray-600"></div>
+							</div>
+						),
+						table: ({ children }) => (
+							<div className="mb-3 max-w-full overflow-x-auto">
+								<table className="min-w-full border-collapse rounded-lg text-sm">
+									{children}
+								</table>
+							</div>
+						),
+						thead: ({ children }) => (
+							<thead className="border-b-2 border-cyan-500 bg-gray-800">
+								{children}
+							</thead>
+						),
+						tbody: ({ children }) => (
+							<tbody className="bg-gray-900/50">{children}</tbody>
+						),
+						tr: ({ children }) => (
+							<tr className="border-b border-gray-700 transition-colors last:border-b-0 hover:bg-gray-800/30">
+								{children}
+							</tr>
+						),
+						th: ({ children }) => (
+							<th className="px-3 py-2 text-left font-semibold wrap-break-word text-cyan-400">
+								{children}
+							</th>
+						),
+						td: ({ children }) => (
+							<td className="px-3 py-2 wrap-break-word">{children}</td>
+						),
+						/* Custom tag mapped from [CONTEXT: ...] blocks */
+						'context-chip': ({
+							'data-lines': lines,
+							'data-preview': preview,
+						}: any) => {
+							const lineInfo = lines.replace('Lines ', 'L').replace('Line ', 'L');
+							return (
+								<span
+									className={`mx-0.5 inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-900/40 px-1.5 py-0.5 align-baseline text-[11px] font-medium whitespace-nowrap text-cyan-300 select-none ${
+										onContextClick
+											? 'cursor-pointer transition-colors hover:bg-cyan-800/60'
+											: 'cursor-default'
+									}`}
+									title={`Document Context: ${lines}`}
+									onClick={() => {
+										if (onContextClick && preview) {
+											onContextClick(preview);
+										}
+									}}
+								>
+									<span style={{ fontSize: '12px' }}>💬</span>
+									<span>{lineInfo}</span>
+									<span
+										style={{
+											color: '#9ca3af',
+											maxWidth: '80px',
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+											display: 'inline-block',
+											verticalAlign: 'bottom',
+										}}
+									>
+										{preview}
+									</span>
+								</span>
+							);
+						},
+					} as any
+				}
 			>
 				{processedContent}
 			</ReactMarkdown>

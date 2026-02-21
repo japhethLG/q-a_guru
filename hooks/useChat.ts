@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import {
 	ChatMessage,
 	ChatConfig,
+	QaConfig,
 	SelectionMetadata,
 	ScrollTarget,
 } from '../types';
@@ -15,13 +16,14 @@ import {
 	buildToolResultMessage,
 } from './useToolExecution';
 import { LLMTransport } from '../services/llmTransport';
+import { prompts } from '../services/prompts';
+import { getTemplateById } from '../services/templateStorage';
 
 interface UseChatProps {
 	documentHtml: string;
 	selectedText: SelectionMetadata | null;
 	documentsContent: string[];
-	qaConfig: any;
-	generationConfig: any;
+	qaConfig: QaConfig;
 	chatConfig: ChatConfig;
 	transport: LLMTransport;
 	onDocumentEdit: (
@@ -46,6 +48,7 @@ interface UseChatReturn {
 	handleRetryAIMessage: (index: number) => Promise<void>;
 	handleStopGeneration: () => void;
 	handleResetChat: () => void;
+	handleQuickGenerate: () => Promise<void>;
 	removePlaceholderMessage: () => void;
 	replacePlaceholderMessage: (message: ChatMessage) => void;
 }
@@ -91,7 +94,6 @@ export const useChat = ({
 	selectedText,
 	documentsContent,
 	qaConfig,
-	generationConfig,
 	chatConfig: initialChatConfig,
 	transport,
 	onDocumentEdit,
@@ -170,7 +172,7 @@ export const useChat = ({
 					selectedText,
 					qaConfig.apiKey,
 					chatConfig.model,
-					generationConfig || qaConfig,
+					qaConfig,
 					abortControllerRef.current!.signal,
 					transport
 				);
@@ -183,7 +185,11 @@ export const useChat = ({
 				}
 
 				// --- Process tool calls ---
-				const result = await handleFunctionCalls(streamResult, latestHtml, transport);
+				const result = await handleFunctionCalls(
+					streamResult,
+					latestHtml,
+					transport
+				);
 
 				// No function calls — normal text response, we're done
 				if (!result.newHtml && !result.toolResponse && result.success) {
@@ -316,7 +322,7 @@ export const useChat = ({
 						selectedText,
 						qaConfig.apiKey,
 						chatConfig.model,
-						generationConfig || qaConfig,
+						qaConfig,
 						abortControllerRef.current.signal,
 						transport
 					);
@@ -330,7 +336,11 @@ export const useChat = ({
 
 					const retryResult = await processChatStream(retryStream);
 					if (retryResult.fullResponse) {
-						const result = await handleFunctionCalls(retryResult, latestHtml, transport);
+						const result = await handleFunctionCalls(
+							retryResult,
+							latestHtml,
+							transport
+						);
 
 						if (result.success && result.newHtml !== undefined) {
 							onDocumentEdit(
@@ -445,6 +455,19 @@ export const useChat = ({
 		setInput('');
 	};
 
+	const handleQuickGenerate = async () => {
+		const selectedTemplate = qaConfig.selectedTemplateId
+			? getTemplateById(qaConfig.selectedTemplateId)
+			: null;
+		const prompt = prompts.buildGenerationPrompt(
+			qaConfig,
+			selectedTemplate?.templateString
+		);
+		// Reset chat for a fresh generation
+		setMessages([]);
+		await sendMessageWithContext(prompt, []);
+	};
+
 	return {
 		messages,
 		input,
@@ -459,6 +482,7 @@ export const useChat = ({
 		handleRetryAIMessage,
 		handleStopGeneration,
 		handleResetChat,
+		handleQuickGenerate,
 		removePlaceholderMessage,
 		replacePlaceholderMessage,
 	};

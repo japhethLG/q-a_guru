@@ -28,8 +28,6 @@ interface AppContextType {
 	// Q&A Config state
 	qaConfig: QaConfig;
 	setQaConfig: React.Dispatch<React.SetStateAction<QaConfig>>;
-	generationConfig: QaConfig | null;
-	setGenerationConfig: React.Dispatch<React.SetStateAction<QaConfig | null>>;
 
 	// Editor state
 	editorContent: string;
@@ -56,8 +54,6 @@ interface AppContextType {
 	// Loading states
 	isParsing: boolean;
 	setIsParsing: React.Dispatch<React.SetStateAction<boolean>>;
-	isGenerating: boolean;
-	setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
 
 	// Provider config
 	providerConfig: ProviderConfig;
@@ -94,9 +90,6 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		instructions: '',
 		model: 'gemini-3-flash-preview',
 	});
-	const [generationConfig, setGenerationConfig] = useState<QaConfig | null>(
-		null
-	);
 
 	// Editor state
 	const [editorContent, setEditorContent] = useState<string>('');
@@ -117,7 +110,6 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 
 	// Loading states
 	const [isParsing, setIsParsing] = useState(false);
-	const [isGenerating, setIsGenerating] = useState(false);
 
 	// Provider config — persisted to localStorage
 	const [providerConfig, setProviderConfig] = useState<ProviderConfig>(() => {
@@ -193,8 +185,6 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		// Q&A Config
 		qaConfig,
 		setQaConfig,
-		generationConfig,
-		setGenerationConfig,
 
 		// Editor
 		editorContent,
@@ -219,8 +209,6 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 		// Loading states
 		isParsing,
 		setIsParsing,
-		isGenerating,
-		setIsGenerating,
 
 		// Provider
 		providerConfig,
