@@ -269,6 +269,8 @@ export function createProxyTransport(baseUrl: string): LLMTransport {
 				name: m.id,
 				displayName: m.id,
 				description: m.description || m.id,
+				inputTokenLimit: m.input_token_limit,
+				outputTokenLimit: m.output_token_limit,
 			}));
 
 			// Return an async iterable to match the SDK's pager interface

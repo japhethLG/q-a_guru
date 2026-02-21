@@ -5,6 +5,8 @@ interface ModelOption {
 	value: string;
 	label: string;
 	group?: string;
+	inputTokenLimit?: number;
+	outputTokenLimit?: number;
 }
 
 // Module-level cache: avoids refetching on every render / remount
@@ -110,6 +112,8 @@ export function useGeminiModels() {
 						value: name,
 						label: prettifyName(name, model.displayName || undefined),
 						group: inferGroup(name),
+						inputTokenLimit: model.inputTokenLimit || undefined,
+						outputTokenLimit: model.outputTokenLimit || undefined,
 					});
 				}
 

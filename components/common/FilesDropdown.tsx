@@ -1,9 +1,11 @@
 import React from 'react';
 import { FileTextIcon, XIcon, ChevronDownIcon, TrashIcon } from './Icons';
 import { Button, Dropdown } from './';
+import { DocumentAttachment } from '../../types';
 
 interface FilesDropdownProps {
 	files: File[];
+	documentsContent?: DocumentAttachment[];
 	onRemove?: (index: number, file: File) => void;
 	onReset?: () => void;
 	disabled?: boolean;
@@ -15,6 +17,7 @@ interface FilesDropdownProps {
 
 export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 	files,
+	documentsContent,
 	onRemove,
 	onReset,
 	disabled = false,
@@ -127,8 +130,17 @@ export const FilesDropdown: React.FC<FilesDropdownProps> = ({
 										>
 											{file.name}
 										</p>
-										<p className="mt-0.5 text-xs text-gray-400">
-											{formatFileSize(file.size)}
+										<p className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+											<span>{formatFileSize(file.size)}</span>
+											{documentsContent?.find((d) => d.fileName === file.name)
+												?.tokenCount !== undefined && (
+												<span className="inline-flex items-center rounded-sm bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-cyan-400 ring-1 ring-gray-600 ring-inset">
+													{documentsContent
+														.find((d) => d.fileName === file.name)!
+														.tokenCount!.toLocaleString()}{' '}
+													tokens
+												</span>
+											)}
 										</p>
 									</div>
 									{onRemove && !disabled && (

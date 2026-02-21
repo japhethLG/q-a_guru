@@ -9,7 +9,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useChat } from '../hooks/useChat';
 import { ChatMessageList, ChatInput } from './chat';
 import { ConfigModal } from './ConfigModal';
-import { parseFile } from '../services/parser';
+import { parseFileToAttachment } from '../services/parser';
 
 interface ChatSectionProps {
 	documentHtml: string;
@@ -59,6 +59,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		handleStopGeneration,
 		handleResetChat,
 		handleQuickGenerate,
+		sessionTokens,
+		inputImages,
+		setInputImages,
 	} = useChat({
 		documentHtml,
 		selectedText,
@@ -86,7 +89,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		setIsParsing(true);
 		try {
 			const parsedContents = await Promise.all(
-				newFiles.map((file) => parseFile(file))
+				newFiles.map((file) => parseFileToAttachment(file))
 			);
 			setDocumentsContent((prev) => [...prev, ...parsedContents]);
 		} catch (error) {
@@ -121,6 +124,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 			<ChatInput
 				input={input}
 				onInputChange={setInput}
+				inputImages={inputImages}
+				onInputImagesChange={setInputImages}
 				onSendMessage={(enrichedMessage, images) =>
 					handleSendMessage(enrichedMessage, images)
 				}
@@ -133,6 +138,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				hasDocuments={files.length > 0}
 				hasEditorContent={!!documentHtml.trim()}
 				files={files}
+				documentsContent={documentsContent}
 				onFilesAdd={handleFilesAdd}
 				onFileRemove={handleFileRemove}
 				isParsing={isParsing}
@@ -140,6 +146,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 				onResetChat={handleResetChat}
 				hasMessages={messages.length > 0}
 				onContextClick={onContextClick}
+				sessionTokens={sessionTokens}
 			/>
 
 			<ConfigModal

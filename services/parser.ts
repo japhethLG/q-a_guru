@@ -3,6 +3,8 @@ declare const JSZip: any;
 import mammoth from 'mammoth';
 import JSZipImport from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
+import { DocumentAttachment } from '../types';
+import { countTokensForAttachment } from './tokenCounter';
 // @ts-ignore
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
 
@@ -113,6 +115,72 @@ export const parseFile = async (file: File): Promise<string> => {
 		default:
 			throw new Error(`Unsupported file type: ${extension}`);
 	}
+};
+
+/**
+ * Parse a file into a DocumentAttachment for the new context pipeline.
+ * PDFs are stored as native binary (base64) for direct LLM consumption.
+ * Other types are parsed to text.
+ */
+export const parseFileToAttachment = async (
+	file: File
+): Promise<DocumentAttachment> => {
+	const extension = file.name.split('.').pop()?.toLowerCase();
+	let doc: DocumentAttachment;
+
+	switch (extension) {
+		case 'pdf': {
+			// Native handoff — store raw bytes as base64
+			const arrayBuffer = await file.arrayBuffer();
+			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+			const base64 = await fileToBase64(file);
+			doc = {
+				fileName: file.name,
+				type: 'native',
+				rawBase64: base64,
+				mimeType: 'application/pdf',
+				totalPages: pdf.numPages,
+			};
+			break;
+		}
+		case 'txt': {
+			const text = await parseTxt(file);
+			doc = {
+				fileName: file.name,
+				type: 'text',
+				mimeType: 'text/plain',
+				parsedText: text,
+			};
+			break;
+		}
+		case 'docx': {
+			const text = await parseDocx(file);
+			doc = {
+				fileName: file.name,
+				type: 'text',
+				mimeType:
+					'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				parsedText: text,
+			};
+			break;
+		}
+		case 'pptx': {
+			const text = await parsePptx(file);
+			doc = {
+				fileName: file.name,
+				type: 'text',
+				mimeType:
+					'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+				parsedText: text,
+			};
+			break;
+		}
+		default:
+			throw new Error(`Unsupported file type: ${extension}`);
+	}
+
+	doc.tokenCount = await countTokensForAttachment(doc);
+	return doc;
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {

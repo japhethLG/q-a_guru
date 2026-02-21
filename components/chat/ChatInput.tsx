@@ -8,7 +8,11 @@ import React, {
 	ChangeEvent,
 	ClipboardEvent,
 } from 'react';
-import { SelectionMetadata, ImageAttachment } from '../../types';
+import {
+	SelectionMetadata,
+	ImageAttachment,
+	DocumentAttachment,
+} from '../../types';
 import { Button, Modal } from '../common';
 import { ModelPicker } from '../common/ModelPicker';
 import {
@@ -20,10 +24,15 @@ import {
 	RefreshCwIcon,
 } from '../common/Icons';
 import { useAppContext } from '../../contexts/AppContext';
+import { countTokensForMessage } from '../../services/tokenCounter';
 
 interface ChatInputProps {
 	input: string;
 	onInputChange: (value: string) => void;
+	inputImages: ImageAttachment[];
+	onInputImagesChange: (
+		images: ImageAttachment[] | ((prev: ImageAttachment[]) => ImageAttachment[])
+	) => void;
 	onSendMessage: (enrichedMessage?: string, images?: ImageAttachment[]) => void;
 	onStopGeneration: () => void;
 	isLoading: boolean;
@@ -35,6 +44,7 @@ interface ChatInputProps {
 	hasEditorContent: boolean;
 	// File attachment props
 	files: File[];
+	documentsContent?: DocumentAttachment[];
 	onFilesAdd: (newFiles: File[]) => void;
 	onFileRemove: (index: number) => void;
 	isParsing: boolean;
@@ -42,6 +52,7 @@ interface ChatInputProps {
 	onResetChat: () => void;
 	hasMessages: boolean;
 	onContextClick?: (previewText: string) => void;
+	sessionTokens: number | null;
 }
 
 const selectionActionButtons = [
@@ -160,6 +171,8 @@ const createContextChipElement = (
 export const ChatInput: React.FC<ChatInputProps> = ({
 	input,
 	onInputChange,
+	inputImages,
+	onInputImagesChange,
 	onSendMessage,
 	onStopGeneration,
 	isLoading,
@@ -170,6 +183,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 	hasDocuments,
 	hasEditorContent,
 	files,
+	documentsContent,
 	onFilesAdd,
 	onFileRemove,
 	isParsing,
@@ -177,15 +191,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 	onResetChat,
 	hasMessages,
 	onContextClick,
+	sessionTokens,
 }) => {
 	const editableRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isDragging, setIsDragging] = React.useState(false);
 	const [isResetConfirmOpen, setIsResetConfirmOpen] = React.useState(false);
 	const [hasContent, setHasContent] = React.useState(false);
-	const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(
-		[]
-	);
 	const { qaConfig, setQaConfig, setSelectedText } = useAppContext();
 	const lastProcessedContextRef = useRef<SelectionMetadata | null>(null);
 
@@ -300,15 +312,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		e.target.value = '';
 	};
 
-	/** Convert a File to an ImageAttachment (base64) */
+	/** Convert a File to an ImageAttachment (base64) and fetch accurate API tokens */
 	const fileToImageAttachment = (file: File): Promise<ImageAttachment> =>
 		new Promise((resolve, reject) => {
 			const reader = new FileReader();
-			reader.onload = () => {
-				const result = reader.result as string;
-				// Strip the data URL prefix (e.g. "data:image/png;base64,")
-				const base64 = result.split(',')[1];
-				resolve({ data: base64, mimeType: file.type, name: file.name });
+			reader.onload = async () => {
+				try {
+					const result = reader.result as string;
+					const base64 = result.split(',')[1];
+					const imgTokenCount = await countTokensForMessage({
+						role: 'user',
+						content: '',
+						images: [{ data: base64, mimeType: file.type }],
+					});
+					resolve({
+						data: base64,
+						mimeType: file.type,
+						name: file.name,
+						tokenCount: imgTokenCount,
+					});
+				} catch (err) {
+					reject(err);
+				}
 			};
 			reader.onerror = reject;
 			reader.readAsDataURL(file);
@@ -317,11 +342,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 	/** Add image files to the attachments */
 	const addImageFiles = async (imageFiles: File[]) => {
 		const attachments = await Promise.all(imageFiles.map(fileToImageAttachment));
-		setImageAttachments((prev) => [...prev, ...attachments]);
+		onInputImagesChange((prev) => [...prev, ...attachments]);
 	};
 
 	const handleRemoveImage = (index: number) => {
-		setImageAttachments((prev) => prev.filter((_, i) => i !== index));
+		onInputImagesChange((prev) => prev.filter((_, i) => i !== index));
 	};
 
 	const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -374,21 +399,27 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		if (!el || isLoading) return;
 
 		const { text } = parseContentEditableToMessage(el);
-		if (!text && files.length === 0 && imageAttachments.length === 0) return;
+		if (!text && files.length === 0 && inputImages.length === 0) return;
 
 		// Capture images before clearing
-		const imagesToSend =
-			imageAttachments.length > 0 ? [...imageAttachments] : undefined;
+		const imagesToSend = inputImages.length > 0 ? [...inputImages] : undefined;
 
 		// Clear the editable
 		el.innerHTML = '';
 		setHasContent(false);
 		onInputChange('');
 		lastProcessedContextRef.current = null;
-		setImageAttachments([]);
+		onInputImagesChange([]);
 
 		onSendMessage(text || undefined, imagesToSend);
-	}, [isLoading, files.length, imageAttachments, onSendMessage, onInputChange]);
+	}, [
+		isLoading,
+		files.length,
+		inputImages,
+		onSendMessage,
+		onInputChange,
+		onInputImagesChange,
+	]);
 
 	// Handle keyDown on contentEditable
 	const handleKeyDown = useCallback(
@@ -401,7 +432,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 		[isLoading, handleSend]
 	);
 
-	const canSend = hasContent || files.length > 0 || imageAttachments.length > 0;
+	const canSend = hasContent || files.length > 0 || inputImages.length > 0;
 	const hasContextChips =
 		editableRef.current?.querySelector('[data-context-chip]') !== null;
 
@@ -480,9 +511,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 										<span className="max-w-[120px] truncate text-xs font-medium text-gray-200">
 											{truncateFileName(file.name)}
 										</span>
-										<span className="text-[10px] text-gray-500 uppercase">
-											{getFileTypeLabel(file.name)}
-										</span>
+										<div className="flex items-center gap-1.5 text-[10px] text-gray-500 uppercase">
+											<span>{getFileTypeLabel(file.name)}</span>
+											{documentsContent?.[index]?.tokenCount !== undefined && (
+												<>
+													<span className="h-1 w-1 rounded-full bg-gray-600"></span>
+													<span className="font-medium text-cyan-500/80">
+														{documentsContent[index].tokenCount?.toLocaleString()} tokens
+													</span>
+												</>
+											)}
+										</div>
 									</div>
 									<Button
 										variant="icon"
@@ -509,19 +548,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 				)}
 
 				{/* Image attachment previews */}
-				{imageAttachments.length > 0 && (
+				{inputImages.length > 0 && (
 					<div className="px-4 pt-3">
 						<div className="flex flex-wrap gap-2">
-							{imageAttachments.map((img, index) => (
+							{inputImages.map((img, index) => (
 								<div
 									key={`img-${index}`}
-									className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-600/50 bg-gray-600/40"
+									className="group relative h-16 shrink-0 overflow-hidden rounded-lg border border-gray-600/50 bg-gray-600/40"
 								>
 									<img
 										src={`data:${img.mimeType};base64,${img.data}`}
 										alt={img.name || 'Image attachment'}
-										className="h-full w-full object-cover"
+										className="h-full object-cover"
 									/>
+									{img.tokenCount !== undefined && (
+										<div className="absolute right-1 bottom-1 rounded-sm bg-gray-900/80 px-1 py-0.5 text-[9px] font-medium text-cyan-400 backdrop-blur-sm">
+											{img.tokenCount.toLocaleString()} t
+										</div>
+									)}
 									<Button
 										variant="icon"
 										size="sm"
@@ -644,6 +688,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 						)}
 					</div>
 				</div>
+
+				{/* Overall Token Counter Row */}
+				{sessionTokens !== null && (
+					<div className="flex justify-end px-4 pb-2.5">
+						<span className="text-[10px] font-medium text-gray-500">
+							Context:{' '}
+							<span className="cursor-default text-cyan-400/90 transition-colors hover:text-cyan-400">
+								{sessionTokens.toLocaleString()} tokens
+							</span>
+						</span>
+					</div>
+				)}
 			</div>
 
 			{/* Hidden file input */}

@@ -3,7 +3,6 @@
  */
 
 import { getTemplateById } from './templateStorage';
-import { parseQuestions } from './documentParser';
 import { QaConfig } from '../types';
 
 export const prompts = {
@@ -29,7 +28,7 @@ export const prompts = {
 	 * Base system instruction for chat interactions
 	 */
 	baseChatSystemInstruction: (
-		sourceDocuments: string[],
+		hasDocuments: boolean,
 		qaConfig?: {
 			type: string;
 			difficulty: string;
@@ -38,8 +37,6 @@ export const prompts = {
 			count: number;
 		} | null
 	) => {
-		const hasDocuments = sourceDocuments && sourceDocuments.length > 0;
-
 		let instruction = `You are an AI assistant in a document editor. Your primary function is to help the user by answering questions and modifying the document content.
 
 <document_status>
@@ -143,96 +140,6 @@ ${selectedTemplate.templateString}
 		}
 
 		return instruction;
-	},
-
-	/**
-	 * Appends document HTML context to the system instruction
-	 */
-	appendDocumentHtml: (instruction: string, documentHtml: string) => {
-		if (!documentHtml || documentHtml.trim() === '') {
-			return (
-				instruction +
-				`\n\n<document_state>\nEMPTY — No content in the editor. Use full_replace with full_document_html to create new content.\n</document_state>`
-			);
-		}
-
-		// Count existing questions to help AI with numbering
-		const questionCount = (
-			documentHtml.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.\)\-]/gi) || []
-		).length;
-		const countInfo =
-			questionCount > 0
-				? `\nThe document currently contains ${questionCount} question(s). When adding new questions, the system will auto-renumber them.`
-				: '';
-
-		return (
-			instruction +
-			`\n\n<document_state>\nCurrent document content:${countInfo}\n"""\n${documentHtml}\n"""\n</document_state>`
-		);
-	},
-
-	/**
-	 * Appends selected text context to the system instruction
-	 */
-	appendSelectedText: (
-		instruction: string,
-		selectedText: {
-			selectedText: string;
-			selectedHtml: string;
-			startLine: number;
-			endLine: number;
-			contextBefore?: string;
-			contextAfter?: string;
-		}
-	) => {
-		const lineInfo =
-			selectedText.startLine === selectedText.endLine
-				? `Line ${selectedText.startLine}`
-				: `Lines ${selectedText.startLine}-${selectedText.endLine}`;
-
-		let contextInfo = '';
-		if (selectedText.contextBefore || selectedText.contextAfter) {
-			contextInfo = '\nContext around selection:';
-			if (selectedText.contextBefore) {
-				contextInfo += `\nBefore: ${selectedText.contextBefore}`;
-			}
-			if (selectedText.contextAfter) {
-				contextInfo += `\nAfter: ${selectedText.contextAfter}`;
-			}
-		}
-
-		// Detect which question number(s) the selection contains
-		let questionGuidance = '';
-		try {
-			const parsed = parseQuestions(
-				selectedText.selectedHtml || selectedText.selectedText
-			);
-			if (parsed.questions.length > 0) {
-				const numbers = parsed.questions.map((q) => q.number);
-				questionGuidance = `\nThe selected content contains question(s): ${numbers.join(', ')}.\nFor targeted edits: use snippet_replace with html_snippet_to_replace matching the selected HTML.\nFor structural changes (add/delete): use full_replace.`;
-			} else {
-				// Selection doesn't contain a full question header — try to detect if
-				// it's part of a question by checking contextBefore for a number pattern
-				const beforeMatch = selectedText.contextBefore?.match(
-					/(\d+)\s*[:.)\-]\s*[^]*$/i
-				);
-				if (beforeMatch) {
-					const nearbyNumber = parseInt(beforeMatch[1], 10);
-					questionGuidance = `\nThis selection appears to be part of question ${nearbyNumber}.\nFor targeted edits: use snippet_replace with the exact HTML from the document.`;
-				} else {
-					questionGuidance =
-						'\nThis selection does not appear to contain a question header.\nFor edits: use snippet_replace with the exact HTML, or full_replace for structural changes.';
-				}
-			}
-		} catch {
-			questionGuidance =
-				'\nFor targeted edits: use snippet_replace with the exact HTML.\nFor structural changes: use full_replace.';
-		}
-
-		return (
-			instruction +
-			`\n\n<user_selection>\nThe user has HIGHLIGHTED content at ${lineInfo}. Focus your edits on this selection.\n\nSelected content:\n"""${selectedText.selectedHtml || selectedText.selectedText}"""${contextInfo}${questionGuidance}\n</user_selection>`
-		);
 	},
 
 	/**

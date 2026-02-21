@@ -10,7 +10,8 @@ interface FileUploadSectionProps {
 export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 	onFileChange,
 }) => {
-	const { files, setFiles, setDocumentsContent, isParsing } = useAppContext();
+	const { files, setFiles, documentsContent, setDocumentsContent, isParsing } =
+		useAppContext();
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 
 	const handleFilesChange = async (newFiles: File[]) => {
@@ -77,6 +78,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
 				<div className="mt-3">
 					<FilesDropdown
 						files={files}
+						documentsContent={documentsContent}
 						onRemove={handleRemoveFile}
 						onReset={handleReset}
 						disabled={isParsing}

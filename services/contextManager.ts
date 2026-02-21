@@ -6,22 +6,32 @@
  */
 
 import { ChatMessage } from '../types';
+import { countTokensForText, countTokensForMessage } from './tokenCounter';
 
 /** Maximum number of user turns to keep in history */
 const MAX_HISTORY_TURNS = 10;
 
-/** Maximum total tokens for history (rough estimate) */
-const MAX_HISTORY_TOKENS = 50_000;
+/** Default fallback input token limit when model limit is unknown */
+const DEFAULT_INPUT_TOKEN_LIMIT = 1_000_000;
 
-/** Rough chars-per-token estimate for English text */
-const CHARS_PER_TOKEN = 4;
+// ---------------------------------------------------------------------------
+// Dynamic Budget Functions
+// ---------------------------------------------------------------------------
 
-/**
- * Estimate the number of tokens in a string.
- * Uses a simple chars/4 heuristic — accurate enough for budgeting.
- */
-export function estimateTokens(text: string): number {
-	return Math.ceil(text.length / CHARS_PER_TOKEN);
+/** Get practical budget (80% of model limit to leave room for output + overhead) */
+function getPracticalBudget(modelInputLimit?: number): number {
+	const limit = modelInputLimit || DEFAULT_INPUT_TOKEN_LIMIT;
+	return Math.floor(limit * 0.8);
+}
+
+/** Get max history token budget (50% of practical budget) */
+function getMaxHistoryTokens(modelInputLimit?: number): number {
+	return Math.floor(getPracticalBudget(modelInputLimit) * 0.5);
+}
+
+/** Get source document token budget (20% of practical budget) */
+function getSourceDocBudget(modelInputLimit?: number): number {
+	return Math.floor(getPracticalBudget(modelInputLimit) * 0.2);
 }
 
 /**
@@ -34,8 +44,22 @@ export function estimateTokens(text: string): number {
  * Messages are returned in their original order. The UI still shows ALL
  * messages — this only affects what gets sent to the API.
  */
-export function pruneHistory(messages: ChatMessage[]): ChatMessage[] {
+export async function pruneHistory(
+	messages: ChatMessage[],
+	modelName: string,
+	modelInputLimit?: number,
+	permanentTokens?: { sourceDocs: number; documentHtml: number }
+): Promise<ChatMessage[]> {
 	if (messages.length === 0) return messages;
+
+	// Calculate available history budget by subtracting permanent context
+	const baseHistoryBudget = getMaxHistoryTokens(modelInputLimit);
+	const permanentTotal =
+		(permanentTokens?.sourceDocs || 0) + (permanentTokens?.documentHtml || 0);
+	const maxHistoryTokens = Math.max(
+		baseHistoryBudget - permanentTotal,
+		10_000 // Floor: always allow at least 10K tokens for history
+	);
 
 	// Step 1: Turn-based limit — count user turns from the end
 	let userCount = 0;
@@ -44,7 +68,7 @@ export function pruneHistory(messages: ChatMessage[]): ChatMessage[] {
 		if (messages[i].role === 'user') {
 			userCount++;
 			if (userCount > MAX_HISTORY_TURNS) {
-				cutIndex = i + 1; // keep from this index onward
+				cutIndex = i + 1;
 				break;
 			}
 		}
@@ -52,19 +76,27 @@ export function pruneHistory(messages: ChatMessage[]): ChatMessage[] {
 	let pruned = cutIndex > 0 ? messages.slice(cutIndex) : [...messages];
 
 	// Step 2: Token-based limit — drop oldest pairs until under budget
-	let totalTokens = pruned.reduce(
-		(sum, m) => sum + estimateTokens(m.content),
-		0
-	);
+	// Populate token cache to avoid recounting
+	let totalTokens = 0;
+	const tokenCache: number[] = new Array(pruned.length).fill(0);
 
-	while (totalTokens > MAX_HISTORY_TOKENS && pruned.length > 4) {
+	for (let i = 0; i < pruned.length; i++) {
+		const m = pruned[i];
+		let tokens = await countTokensForMessage(m, modelName);
+		tokenCache[i] = tokens;
+		totalTokens += tokens;
+	}
+
+	while (totalTokens > maxHistoryTokens && pruned.length > 4) {
 		const dropped = pruned.shift()!;
-		totalTokens -= estimateTokens(dropped.content);
+		let droppedTokens = tokenCache.shift()!;
+		totalTokens -= droppedTokens;
 
 		// Also drop the paired model response to maintain alternation
 		if (pruned.length > 0 && pruned[0].role === 'model') {
-			totalTokens -= estimateTokens(pruned[0].content);
 			pruned.shift();
+			let modelTokens = tokenCache.shift()!;
+			totalTokens -= modelTokens;
 		}
 	}
 
@@ -74,9 +106,6 @@ export function pruneHistory(messages: ChatMessage[]): ChatMessage[] {
 // ---------------------------------------------------------------------------
 // Token Budget System
 // ---------------------------------------------------------------------------
-
-/** Practical token budget — stays well within Gemini's 1M limit */
-const PRACTICAL_TOKEN_BUDGET = 100_000;
 
 export interface ContextBudget {
 	total: number;
@@ -92,51 +121,67 @@ export interface ContextBudget {
 }
 
 /**
- * Estimate total context token usage and provide budgeting guidance.
+ * Total exact API context token usage and provide budgeting guidance.
  *
  * Call this before sending to the API. If `overBudget` is true, apply
  * the `recommendation` (usually pruning history or truncating docs).
  */
-export function buildContextBudget(params: {
+export async function buildContextBudget(params: {
 	systemPrompt: string;
 	sourceDocuments: string[];
+	nativeDocTokens?: number;
 	documentHtml: string;
 	history: ChatMessage[];
 	newMessage: string;
-}): ContextBudget {
+	modelName: string;
+	modelInputLimit?: number;
+}): Promise<ContextBudget> {
+	const practicalBudget = getPracticalBudget(params.modelInputLimit);
+
+	// Run API counts in parallel
+	const [systemPrompt, documentHtml, newMessage] = await Promise.all([
+		countTokensForText(params.systemPrompt, params.modelName),
+		countTokensForText(params.documentHtml, params.modelName),
+		countTokensForText(params.newMessage, params.modelName),
+	]);
+
+	const textDocTokensArr = await Promise.all(
+		params.sourceDocuments.map((doc) => countTokensForText(doc, params.modelName))
+	);
+	const textDocTokens = textDocTokensArr.reduce((sum, count) => sum + count, 0);
+
+	const historyTokensArr = await Promise.all(
+		params.history.map((m) => countTokensForMessage(m, params.modelName))
+	);
+	const historyTokens = historyTokensArr.reduce((sum, count) => sum + count, 0);
+
 	const breakdown = {
-		systemPrompt: estimateTokens(params.systemPrompt),
-		sourceDocuments: params.sourceDocuments.reduce(
-			(sum, doc) => sum + estimateTokens(doc),
-			0
-		),
-		documentHtml: estimateTokens(params.documentHtml),
-		history: params.history.reduce(
-			(sum, m) => sum + estimateTokens(m.content),
-			0
-		),
-		newMessage: estimateTokens(params.newMessage),
+		systemPrompt,
+		sourceDocuments: textDocTokens + (params.nativeDocTokens || 0),
+		documentHtml,
+		history: historyTokens,
+		newMessage,
 	};
 
 	const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
-	const overBudget = total > PRACTICAL_TOKEN_BUDGET;
+	const overBudget = total > practicalBudget;
 
 	let recommendation: string | null = null;
 	if (overBudget) {
-		const excess = total - PRACTICAL_TOKEN_BUDGET;
+		const excess = total - practicalBudget;
 		if (breakdown.history > excess) {
 			recommendation = `Prune history (${breakdown.history} tokens) to save ~${excess} tokens`;
 		} else if (breakdown.sourceDocuments > excess) {
 			recommendation = `Truncate source documents (${breakdown.sourceDocuments} tokens) to stay within budget`;
 		} else {
-			recommendation = `Context is ${total} tokens (budget: ${PRACTICAL_TOKEN_BUDGET}). Consider reducing document size or history.`;
+			recommendation = `Context is ${total} tokens (budget: ${practicalBudget}). Consider reducing document size or history.`;
 		}
 	}
 
 	// Log budget breakdown in dev mode
 	if (import.meta.env.DEV) {
 		console.log(
-			`[ContextBudget] Total: ${total} tokens${overBudget ? ' ⚠️ OVER BUDGET' : ''}`,
+			`[ContextBudget] Total: ${total} tokens (budget: ${practicalBudget}, model limit: ${params.modelInputLimit || 'default'})${overBudget ? ' ⚠️ OVER BUDGET' : ''}`,
 			breakdown
 		);
 	}
@@ -148,29 +193,29 @@ export function buildContextBudget(params: {
 // Source Document Truncation
 // ---------------------------------------------------------------------------
 
-/** Maximum token budget for source documents (20% of practical budget) */
-const SOURCE_DOC_BUDGET = Math.floor(PRACTICAL_TOKEN_BUDGET * 0.2);
-
 /**
  * Proportionally truncate source documents to stay within budget.
  *
  * When total source doc tokens exceed the budget, each document is
  * trimmed proportionally to its share. A truncation notice is appended.
  */
-export function truncateSourceDocuments(
+export async function truncateSourceDocuments(
 	documents: string[],
-	maxTokens: number = SOURCE_DOC_BUDGET
-): string[] {
+	modelName: string,
+	maxTokens?: number,
+	modelInputLimit?: number
+): Promise<string[]> {
+	const budget = maxTokens ?? getSourceDocBudget(modelInputLimit);
 	if (documents.length === 0) return documents;
 
-	const totalTokens = documents.reduce(
-		(sum, doc) => sum + estimateTokens(doc),
-		0
+	const tokenCounts = await Promise.all(
+		documents.map((doc) => countTokensForText(doc, modelName))
 	);
+	const totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
 
-	if (totalTokens <= maxTokens) return documents;
+	if (totalTokens <= budget) return documents;
 
-	const ratio = maxTokens / totalTokens;
+	const ratio = budget / totalTokens;
 
 	return documents.map((doc) => {
 		const maxChars = Math.floor(doc.length * ratio);
@@ -222,10 +267,20 @@ function summarizeDroppedMessages(dropped: ChatMessage[]): string {
  * Returns the pruned array with a compaction summary prepended if
  * messages were dropped.
  */
-export function compactHistory(messages: ChatMessage[]): ChatMessage[] {
+export async function compactHistory(
+	messages: ChatMessage[],
+	modelName: string,
+	modelInputLimit?: number,
+	permanentTokens?: { sourceDocs: number; documentHtml: number }
+): Promise<ChatMessage[]> {
 	if (messages.length === 0) return messages;
 
-	const pruned = pruneHistory(messages);
+	const pruned = await pruneHistory(
+		messages,
+		modelName,
+		modelInputLimit,
+		permanentTokens
+	);
 
 	// If nothing was dropped, no compaction needed
 	if (pruned.length === messages.length) return pruned;

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
 	ChatMessage,
 	ChatConfig,
@@ -6,9 +6,10 @@ import {
 	ImageAttachment,
 	SelectionMetadata,
 	ScrollTarget,
+	DocumentAttachment,
 } from '../types';
 import { getChatResponseStream } from '../services/gemini';
-import { compactHistory } from '../services/contextManager';
+import { compactHistory, buildContextBudget } from '../services/contextManager';
 import { classifyError, delay } from '../services/errorClassifier';
 import { processStream, createStreamUpdateHandler } from './useStreamProcessor';
 import {
@@ -23,7 +24,7 @@ import { getTemplateById } from '../services/templateStorage';
 interface UseChatProps {
 	documentHtml: string;
 	selectedText: SelectionMetadata | null;
-	documentsContent: string[];
+	documentsContent: DocumentAttachment[];
 	qaConfig: QaConfig;
 	chatConfig: ChatConfig;
 	transport: LLMTransport;
@@ -55,6 +56,9 @@ interface UseChatReturn {
 	handleQuickGenerate: () => Promise<void>;
 	removePlaceholderMessage: () => void;
 	replacePlaceholderMessage: (message: ChatMessage) => void;
+	sessionTokens: number | null;
+	inputImages: ImageAttachment[];
+	setInputImages: (images: ImageAttachment[]) => void;
 }
 
 /**
@@ -104,10 +108,64 @@ export const useChat = ({
 }: UseChatProps): UseChatReturn => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState('');
+	const [inputImages, setInputImages] = useState<ImageAttachment[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isStreamingText, setIsStreamingText] = useState(false);
 	const [chatConfig, setChatConfig] = useState<ChatConfig>(initialChatConfig);
+	const [sessionTokens, setSessionTokens] = useState<number | null>(null);
 	const abortControllerRef = useRef<AbortController | null>(null);
+
+	// Estimate total session tokens with debounce
+	useEffect(() => {
+		// IMPORTANT: Do not recalculate token counts while the stream is actively
+		// generating new messages. The `messages` array changes on every chunk,
+		// which would aggressively fire this effect and spam the token counting API.
+		if (isLoading || isStreamingText) return;
+
+		const timer = setTimeout(() => {
+			const nativeDocTokens = documentsContent
+				.filter((d) => d.type === 'native' || (d.type === 'text' && !d.parsedText))
+				.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
+
+			const textStrings = documentsContent
+				.filter((d) => d.type === 'text' && d.parsedText)
+				.map((d) => d.parsedText!);
+
+			const baseSystemInstruction = prompts.baseChatSystemInstruction(
+				documentsContent.length > 0,
+				qaConfig
+			);
+
+			buildContextBudget({
+				systemPrompt: baseSystemInstruction,
+				sourceDocuments: textStrings,
+				nativeDocTokens,
+				documentHtml,
+				history: messages,
+				newMessage: input,
+				modelName: chatConfig.model,
+			})
+				.then((budget) => {
+					const inputImagesTokens = inputImages.reduce(
+						(sum, img) => sum + (img.tokenCount || 0),
+						0
+					);
+					setSessionTokens(budget.total + inputImagesTokens);
+				})
+				.catch((err) => console.error('Failed to count session tokens:', err));
+		}, 800);
+		return () => clearTimeout(timer);
+	}, [
+		documentHtml,
+		documentsContent,
+		messages,
+		input,
+		inputImages,
+		chatConfig.model,
+		qaConfig,
+		isLoading,
+		isStreamingText,
+	]);
 
 	const removePlaceholderMessage = () => {
 		setMessages(removePlaceholder);
@@ -163,7 +221,7 @@ export const useChat = ({
 		setMessages([...updatedMessages, { role: 'model', content: '' }]);
 
 		// Compact history before sending to the API (UI still shows all messages)
-		let loopHistory = compactHistory(contextMessages);
+		let loopHistory = await compactHistory(contextMessages, chatConfig.model);
 		let latestHtml = documentHtml;
 		let currentMessage = messageToSend;
 		let iteration = 0;
@@ -325,8 +383,8 @@ export const useChat = ({
 					// For context overflow, aggressively prune before retry
 					const retryHistory =
 						classified.type === 'context_overflow'
-							? compactHistory(contextMessages).slice(-6) // Keep only last 3 turns
-							: compactHistory(contextMessages);
+							? (await compactHistory(contextMessages, chatConfig.model)).slice(-6) // Keep only last 3 turns
+							: await compactHistory(contextMessages, chatConfig.model);
 
 					abortControllerRef.current = new AbortController();
 
@@ -504,5 +562,8 @@ export const useChat = ({
 		handleQuickGenerate,
 		removePlaceholderMessage,
 		replacePlaceholderMessage,
+		sessionTokens,
+		inputImages,
+		setInputImages,
 	};
 };

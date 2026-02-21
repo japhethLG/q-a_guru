@@ -10,6 +10,7 @@
  */
 
 import { GoogleGenAI, FunctionDeclaration } from '@google/genai';
+import { DocumentAttachment } from '../types';
 
 interface CacheEntry {
 	cacheName: string;
@@ -42,7 +43,7 @@ export async function getOrCreateCache(params: {
 	ai: GoogleGenAI;
 	model: string;
 	systemInstruction: string;
-	sourceDocuments: string[];
+	sourceDocuments: DocumentAttachment[];
 	tools: FunctionDeclaration[];
 	apiKey: string;
 }): Promise<string | null> {
@@ -50,10 +51,16 @@ export async function getOrCreateCache(params: {
 		params;
 
 	// Compute fingerprint from all cached content
+	// For native docs, use fileName+mimeType as a lighter proxy for the full base64
+	const docFingerprints = sourceDocuments.map((d) =>
+		d.type === 'native'
+			? `native:${d.fileName}:${d.mimeType}:${d.rawBase64?.length || 0}`
+			: `text:${d.parsedText || ''}`
+	);
 	const fingerprint = computeFingerprint(
 		model,
 		systemInstruction,
-		...sourceDocuments,
+		...docFingerprints,
 		apiKey
 	);
 
@@ -73,16 +80,42 @@ export async function getOrCreateCache(params: {
 
 	try {
 		// Build content to cache: source documents as a user/model pair
+		const buildCachedParts = () => {
+			const parts: any[] = [];
+
+			// Native docs: cache as inlineData
+			for (const doc of sourceDocuments) {
+				if (doc.type === 'native' && doc.rawBase64) {
+					parts.push({
+						inlineData: {
+							data: doc.rawBase64,
+							mimeType: doc.mimeType,
+						},
+					});
+				}
+			}
+
+			// Text docs: cache as text
+			const textDocs = sourceDocuments.filter((d) => d.type === 'text');
+			if (textDocs.length > 0) {
+				const textContent = textDocs
+					.map((d) => d.parsedText || '')
+					.join('\n\n---\n\n');
+				parts.push({
+					text: `<source_documents>\nThe following source documents are provided for reference. Base your knowledge and Q&A generation on this content.\n\n${textContent}\n</source_documents>`,
+				});
+			}
+
+			return parts;
+		};
+
+		const cachedParts = buildCachedParts();
 		const cachedContents =
-			sourceDocuments.length > 0
+			cachedParts.length > 0
 				? [
 						{
 							role: 'user' as const,
-							parts: [
-								{
-									text: `<source_documents>\nThe following source documents are provided for reference. Base your knowledge and Q&A generation on this content.\n\n${sourceDocuments.join('\n\n---\n\n')}\n</source_documents>`,
-								},
-							],
+							parts: cachedParts,
 						},
 						{
 							role: 'model' as const,

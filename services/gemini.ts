@@ -11,6 +11,7 @@ import {
 	ImageAttachment,
 	SelectionMetadata,
 	ScrollTarget,
+	DocumentAttachment,
 } from '../types';
 import { prompts, toolDeclarations } from './prompts';
 import { tryReplaceExact, tryReplaceFuzzy } from './htmlReplace';
@@ -117,7 +118,7 @@ const readDocumentTool: FunctionDeclaration = {
 export const getChatResponseStream = async function* (
 	history: ChatMessage[],
 	newMessage: string,
-	sourceDocuments: string[],
+	sourceDocuments: DocumentAttachment[],
 	documentHtml?: string,
 	selectedText?: SelectionMetadata | null,
 	apiKey?: string,
@@ -131,25 +132,41 @@ export const getChatResponseStream = async function* (
 		transport ||
 		createSDKTransport(apiKey || import.meta.env.VITE_GEMINI_API_KEY);
 
-	// Build the base system instruction (static — cacheable)
+	// Build the base system instruction (static — fully cacheable)
 	const baseSystemInstruction = prompts.baseChatSystemInstruction(
-		sourceDocuments,
+		sourceDocuments && sourceDocuments.length > 0,
 		qaConfig
 	);
 
-	// Dynamic parts (change every turn — NOT cached)
-	let dynamicSuffix = '';
-	if (documentHtml) {
-		dynamicSuffix += prompts.appendDocumentHtml('', documentHtml);
-	}
-	if (selectedText) {
-		dynamicSuffix += prompts.appendSelectedText('', selectedText);
-	}
-
-	const fullSystemInstruction = baseSystemInstruction + dynamicSuffix;
+	// Separate source docs by type for budget and truncation
+	const textDocs = sourceDocuments.filter((d) => d.type === 'text');
+	const nativeDocs = sourceDocuments.filter((d) => d.type === 'native');
+	const textStrings = textDocs.map((d) => d.parsedText || '');
 
 	const geminiHistory = history
 		.filter((m) => m.role !== 'system' && (m.content?.trim() || m.images?.length))
+		// Strip stale <document_state> pairs from history — document state is
+		// injected fresh every turn, old ones waste context
+		.filter((m, i, arr) => {
+			// Skip user turns that start with <document_state>
+			if (
+				m.role === 'user' &&
+				m.content?.trimStart().startsWith('<document_state>')
+			) {
+				return false;
+			}
+			// Skip model turns that follow a document_state user turn
+			if (m.role === 'model' && i > 0) {
+				const prev = arr[i - 1];
+				if (
+					prev.role === 'user' &&
+					prev.content?.trimStart().startsWith('<document_state>')
+				) {
+					return false;
+				}
+			}
+			return true;
+		})
 		.map((message) => {
 			const parts: any[] = [];
 			// Add image parts first (if any)
@@ -170,8 +187,8 @@ export const getChatResponseStream = async function* (
 		selectedText || undefined
 	);
 
-	// Auto-truncate source documents if they exceed their token budget
-	const trimmedSourceDocs = truncateSourceDocuments(sourceDocuments || []);
+	// Auto-truncate text source documents if they exceed their token budget
+	const trimmedTextDocs = await truncateSourceDocuments(textStrings, model);
 
 	const tools: FunctionDeclaration[] = [editDocumentTool, readDocumentTool];
 
@@ -184,44 +201,74 @@ export const getChatResponseStream = async function* (
 			ai,
 			model,
 			systemInstruction: baseSystemInstruction,
-			sourceDocuments: trimmedSourceDocs,
+			sourceDocuments,
 			tools,
 			apiKey: effectiveApiKey,
 		});
 	}
 
 	// Token budget check (informational — logs breakdown in dev)
-	buildContextBudget({
-		systemPrompt: fullSystemInstruction,
-		sourceDocuments: sourceDocuments || [],
+	// Sum up native doc token costs: use stored tokenCount, or estimate ~1500 tokens/page for PDFs
+	const nativeDocTokens = nativeDocs.reduce((sum, d) => {
+		if (d.tokenCount) return sum + d.tokenCount;
+		// Rough estimate: PDFs average ~1500 tokens per page
+		if (d.totalPages) return sum + d.totalPages * 1500;
+		// Fallback: estimate from base64 size (~0.75 bytes per base64 char, ~4 chars per token)
+		if (d.rawBase64) return sum + Math.ceil((d.rawBase64.length * 0.75) / 4);
+		return sum;
+	}, 0);
+
+	await buildContextBudget({
+		systemPrompt: baseSystemInstruction,
+		sourceDocuments: textStrings,
+		nativeDocTokens,
 		documentHtml: documentHtml || '',
 		history,
 		newMessage,
+		modelName: model,
 	});
 
-	// Build contents: if cached, source docs are already in the cache — skip inline
-	const sourceDocContext =
-		!cacheName && trimmedSourceDocs.length > 0
-			? [
-					{
-						role: 'user',
-						parts: [
-							{
-								text: `<source_documents>\nThe following source documents are provided for reference. Base your knowledge and Q&A generation on this content.\n\n${trimmedSourceDocs.join('\n\n---\n\n')}\n</source_documents>`,
-							},
-						],
+	// Build source doc context — handle both native and text attachments
+	const buildSourceDocContext = () => {
+		if (cacheName) return []; // Source docs are in the cache
+		const parts: any[] = [];
+
+		// Native docs: send as inlineData (binary)
+		for (const doc of nativeDocs) {
+			if (doc.rawBase64) {
+				parts.push({
+					inlineData: {
+						data: doc.rawBase64,
+						mimeType: doc.mimeType,
 					},
+				});
+			}
+		}
+
+		// Text docs: send as text parts
+		if (trimmedTextDocs.length > 0) {
+			parts.push({
+				text: `<source_documents>\nThe following source documents are provided for reference. Base your knowledge and Q&A generation on this content.\n\n${trimmedTextDocs.join('\n\n---\n\n')}\n</source_documents>`,
+			});
+		}
+
+		if (parts.length === 0) return [];
+
+		return [
+			{ role: 'user', parts },
+			{
+				role: 'model',
+				parts: [
 					{
-						role: 'model',
-						parts: [
-							{
-								text:
-									'I have received the source documents and will use them for reference.',
-							},
-						],
+						text:
+							'I have received the source documents and will use them for reference.',
 					},
-				]
-			: [];
+				],
+			},
+		];
+	};
+
+	const sourceDocContext = buildSourceDocContext();
 
 	// Build the final user message parts (images + text)
 	const userParts: any[] = [];
@@ -232,9 +279,55 @@ export const getChatResponseStream = async function* (
 	}
 	userParts.push({ text: userPrompt });
 
+	// Build document state context — injected fresh every turn in contents[]
+	const documentContext = (() => {
+		if (!documentHtml || documentHtml.trim() === '') {
+			return [
+				{
+					role: 'user',
+					parts: [
+						{
+							text:
+								'<document_state>\nEMPTY — No content in the editor. Use full_replace with full_document_html to create new content.\n</document_state>',
+						},
+					],
+				},
+				{
+					role: 'model',
+					parts: [{ text: 'I see the current document state.' }],
+				},
+			];
+		}
+
+		// Count existing questions to help AI with numbering
+		const questionCount = (
+			documentHtml.match(/<p[^>]*>\s*<strong[^>]*>\s*\d+\s*[:.\)\-]/gi) || []
+		).length;
+		const countInfo =
+			questionCount > 0
+				? `\nThe document currently contains ${questionCount} question(s). When adding new questions, the system will auto-renumber them.`
+				: '';
+
+		return [
+			{
+				role: 'user',
+				parts: [
+					{
+						text: `<document_state>\nCurrent document content:${countInfo}\n"""\n${documentHtml}\n"""\n</document_state>`,
+					},
+				],
+			},
+			{
+				role: 'model',
+				parts: [{ text: 'I see the current document state.' }],
+			},
+		];
+	})();
+
 	const contents = [
 		...sourceDocContext,
 		...geminiHistory,
+		...documentContext,
 		{ role: 'user', parts: userParts },
 	];
 
@@ -248,14 +341,11 @@ export const getChatResponseStream = async function* (
 
 		if (cacheName) {
 			// Cached mode: tools + base system instruction are in the cache
+			// System instruction is now fully static — no dynamic suffix needed
 			config.cachedContent = cacheName;
-			// Dynamic parts (document HTML, selection) still need system instruction
-			if (dynamicSuffix.trim()) {
-				config.systemInstruction = dynamicSuffix;
-			}
 		} else {
 			// Uncached mode: send everything inline
-			config.systemInstruction = fullSystemInstruction;
+			config.systemInstruction = baseSystemInstruction;
 			config.tools = [{ functionDeclarations: tools }];
 		}
 

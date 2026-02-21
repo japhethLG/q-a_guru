@@ -11,6 +11,7 @@ import {
 	DocumentVersion,
 	SelectionMetadata,
 	ProviderConfig,
+	DocumentAttachment,
 } from '../types';
 import {
 	getActiveTemplate,
@@ -22,8 +23,10 @@ interface AppContextType {
 	// Files state
 	files: File[];
 	setFiles: React.Dispatch<React.SetStateAction<File[]>>;
-	documentsContent: string[];
-	setDocumentsContent: React.Dispatch<React.SetStateAction<string[]>>;
+	documentsContent: DocumentAttachment[];
+	setDocumentsContent: React.Dispatch<
+		React.SetStateAction<DocumentAttachment[]>
+	>;
 
 	// Q&A Config state
 	qaConfig: QaConfig;
@@ -80,7 +83,9 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({
 }) => {
 	// Files state
 	const [files, setFiles] = useState<File[]>([]);
-	const [documentsContent, setDocumentsContent] = useState<string[]>([]);
+	const [documentsContent, setDocumentsContent] = useState<DocumentAttachment[]>(
+		[]
+	);
 
 	// Q&A Config state
 	const [qaConfig, setQaConfig] = useState<QaConfig>({

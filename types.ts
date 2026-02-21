@@ -31,6 +31,17 @@ export interface ImageAttachment {
 	data: string; // base64-encoded image data
 	mimeType: string; // e.g. "image/png", "image/jpeg", "image/webp"
 	name?: string; // original file name
+	tokenCount?: number; // actual token count from API
+}
+
+export interface DocumentAttachment {
+	fileName: string;
+	type: 'native' | 'text';
+	rawBase64?: string; // base64-encoded binary data (for native PDFs)
+	mimeType: string; // e.g. "application/pdf", "text/plain"
+	parsedText?: string; // extracted text (for text-type attachments)
+	totalPages?: number; // page count (for PDFs)
+	tokenCount?: number; // actual token count from countTokens API
 }
 
 export interface ChatMessage {
