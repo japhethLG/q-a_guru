@@ -676,10 +676,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 							</Button>
 						) : (
 							<Button
-								variant={canSend ? 'primary' : 'icon'}
+								variant={canSend && !isParsing ? 'primary' : 'icon'}
 								size="md"
 								onClick={handleSend}
-								disabled={!canSend}
+								disabled={!canSend || isParsing}
 								className="w-11 rounded-full"
 								title="Send message"
 							>

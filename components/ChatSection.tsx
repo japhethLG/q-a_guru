@@ -4,6 +4,7 @@ import {
 	ImageAttachment,
 	SelectionMetadata,
 	ScrollTarget,
+	DocumentAttachment,
 } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useChat } from '../hooks/useChat';
@@ -85,21 +86,32 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 		// Add to file list immediately
 		setFiles((prev) => [...prev, ...newFiles]);
 
-		// Parse in background
+		// Parse in background serially to avoid overloading Gotenberg free tier
 		setIsParsing(true);
-		try {
-			const parsedContents = await Promise.all(
-				newFiles.map((file) => parseFileToAttachment(file))
-			);
-			setDocumentsContent((prev) => [...prev, ...parsedContents]);
-		} catch (error) {
-			console.error('Error parsing files:', error);
-			alert('There was an error parsing one or more files.');
-			// Remove files that failed to parse
-			setFiles((prev) => prev.filter((f) => !newFiles.includes(f)));
-		} finally {
-			setIsParsing(false);
+
+		const parsedContents: DocumentAttachment[] = [];
+		const failedFiles: File[] = [];
+
+		for (const file of newFiles) {
+			try {
+				const doc = await parseFileToAttachment(file);
+				parsedContents.push(doc);
+			} catch (error) {
+				console.error(`Error parsing file ${file.name}:`, error);
+				failedFiles.push(file);
+			}
 		}
+
+		if (failedFiles.length > 0) {
+			alert(
+				`There was an error parsing the following files:\n${failedFiles.map((f) => f.name).join('\n')}`
+			);
+			// Remove files that failed to parse
+			setFiles((prev) => prev.filter((f) => !failedFiles.includes(f)));
+		}
+
+		setDocumentsContent((prev) => [...prev, ...parsedContents]);
+		setIsParsing(false);
 	};
 
 	const handleFileRemove = (index: number) => {

@@ -5,6 +5,7 @@ import JSZipImport from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DocumentAttachment } from '../types';
 import { countTokensForAttachment } from './tokenCounter';
+import { convertToPdf } from './gotenberg';
 // @ts-ignore
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
 
@@ -118,6 +119,25 @@ export const parseFile = async (file: File): Promise<string> => {
 };
 
 /**
+ * Helper to process a PDF File into a native DocumentAttachment.
+ */
+const createPdfAttachment = async (
+	pdfFile: File,
+	originalFileName: string
+): Promise<DocumentAttachment> => {
+	const arrayBuffer = await pdfFile.arrayBuffer();
+	const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+	const base64 = await fileToBase64(pdfFile);
+	return {
+		fileName: originalFileName,
+		type: 'native',
+		rawBase64: base64,
+		mimeType: 'application/pdf',
+		totalPages: pdf.numPages,
+	};
+};
+
+/**
  * Parse a file into a DocumentAttachment for the new context pipeline.
  * PDFs are stored as native binary (base64) for direct LLM consumption.
  * Other types are parsed to text.
@@ -131,16 +151,7 @@ export const parseFileToAttachment = async (
 	switch (extension) {
 		case 'pdf': {
 			// Native handoff — store raw bytes as base64
-			const arrayBuffer = await file.arrayBuffer();
-			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-			const base64 = await fileToBase64(file);
-			doc = {
-				fileName: file.name,
-				type: 'native',
-				rawBase64: base64,
-				mimeType: 'application/pdf',
-				totalPages: pdf.numPages,
-			};
+			doc = await createPdfAttachment(file, file.name);
 			break;
 		}
 		case 'txt': {
@@ -154,25 +165,43 @@ export const parseFileToAttachment = async (
 			break;
 		}
 		case 'docx': {
-			const text = await parseDocx(file);
-			doc = {
-				fileName: file.name,
-				type: 'text',
-				mimeType:
-					'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-				parsedText: text,
-			};
+			try {
+				const pdfFile = await convertToPdf(file);
+				doc = await createPdfAttachment(pdfFile, file.name);
+			} catch (err) {
+				console.warn(
+					'Gotenberg conversion failed for DOCX, falling back to text:',
+					err
+				);
+				const text = await parseDocx(file);
+				doc = {
+					fileName: file.name,
+					type: 'text',
+					mimeType:
+						'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+					parsedText: text,
+				};
+			}
 			break;
 		}
 		case 'pptx': {
-			const text = await parsePptx(file);
-			doc = {
-				fileName: file.name,
-				type: 'text',
-				mimeType:
-					'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-				parsedText: text,
-			};
+			try {
+				const pdfFile = await convertToPdf(file);
+				doc = await createPdfAttachment(pdfFile, file.name);
+			} catch (err) {
+				console.warn(
+					'Gotenberg conversion failed for PPTX, falling back to text:',
+					err
+				);
+				const text = await parsePptx(file);
+				doc = {
+					fileName: file.name,
+					type: 'text',
+					mimeType:
+						'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+					parsedText: text,
+				};
+			}
 			break;
 		}
 		default:
