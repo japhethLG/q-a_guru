@@ -165,43 +165,13 @@ export const parseFileToAttachment = async (
 			break;
 		}
 		case 'docx': {
-			try {
-				const pdfFile = await convertToPdf(file);
-				doc = await createPdfAttachment(pdfFile, file.name);
-			} catch (err) {
-				console.warn(
-					'Gotenberg conversion failed for DOCX, falling back to text:',
-					err
-				);
-				const text = await parseDocx(file);
-				doc = {
-					fileName: file.name,
-					type: 'text',
-					mimeType:
-						'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-					parsedText: text,
-				};
-			}
+			const pdfFile = await convertToPdf(file);
+			doc = await createPdfAttachment(pdfFile, file.name);
 			break;
 		}
 		case 'pptx': {
-			try {
-				const pdfFile = await convertToPdf(file);
-				doc = await createPdfAttachment(pdfFile, file.name);
-			} catch (err) {
-				console.warn(
-					'Gotenberg conversion failed for PPTX, falling back to text:',
-					err
-				);
-				const text = await parsePptx(file);
-				doc = {
-					fileName: file.name,
-					type: 'text',
-					mimeType:
-						'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-					parsedText: text,
-				};
-			}
+			const pdfFile = await convertToPdf(file);
+			doc = await createPdfAttachment(pdfFile, file.name);
 			break;
 		}
 		default:

@@ -1,6 +1,6 @@
 export const VITE_GOTENBERG_URL =
 	import.meta.env.VITE_GOTENBERG_URL ||
-	'https://gotenberg-latest-6gyl.onrender.com';
+	'https://clawdrobomaster.crabdance.com/gotenberg';
 
 /**
  * Converts a supported document type (DOCX, PPTX, etc.) to a native PDF File
@@ -18,36 +18,50 @@ export async function convertToPdf(
 	// Gotenberg expects 'files' as the field name.
 	formData.append('files', file);
 
-	try {
-		const response = await fetch(
-			`${VITE_GOTENBERG_URL}/forms/libreoffice/convert`,
-			{
-				method: 'POST',
-				body: formData,
-			}
-		);
+	const maxAttempts = 3;
+	let attempt = 0;
+	let lastError: any = null;
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`Gotenberg conversion failed: ${response.status} ${response.statusText} - ${errorText}`
+	while (attempt < maxAttempts) {
+		attempt++;
+		try {
+			const response = await fetch(
+				`${VITE_GOTENBERG_URL}/forms/libreoffice/convert`,
+				{
+					method: 'POST',
+					body: formData,
+				}
 			);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(
+					`Gotenberg conversion failed: ${response.status} ${response.statusText} - ${errorText}`
+				);
+			}
+
+			const blob = await response.blob();
+
+			// Retain original filename but change the extension to .pdf
+			let originalName = file.name;
+			const lastDotIndex = originalName.lastIndexOf('.');
+			if (lastDotIndex > 0) {
+				originalName = originalName.substring(0, lastDotIndex);
+			}
+			const pdfFilename = filenameOverride || `${originalName}.pdf`;
+
+			// Return a natively typed File object containing the PDF data
+			return new File([blob], pdfFilename, { type: 'application/pdf' });
+		} catch (error) {
+			lastError = error;
+			console.warn(`Gotenberg convertToPdf attempt ${attempt} failed:`, error);
+			if (attempt < maxAttempts) {
+				// Wait a short delay before retrying (exponential optionally)
+				await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+			}
 		}
-
-		const blob = await response.blob();
-
-		// Retain original filename but change the extension to .pdf
-		let originalName = file.name;
-		const lastDotIndex = originalName.lastIndexOf('.');
-		if (lastDotIndex > 0) {
-			originalName = originalName.substring(0, lastDotIndex);
-		}
-		const pdfFilename = filenameOverride || `${originalName}.pdf`;
-
-		// Return a natively typed File object containing the PDF data
-		return new File([blob], pdfFilename, { type: 'application/pdf' });
-	} catch (error) {
-		console.error('Error in Gotenberg convertToPdf:', error);
-		throw error;
 	}
+
+	console.error('All Gotenberg convertToPdf attempts failed.');
+	throw lastError;
 }
