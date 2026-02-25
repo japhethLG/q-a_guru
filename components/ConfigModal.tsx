@@ -135,7 +135,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 										baseUrl: e.target.value,
 									}))
 								}
-								placeholder="https://clawdrobomaster.crabdance.com/"
+								placeholder="https://bigclawd.crabdance.com/"
 							/>
 						)}
 					</div>

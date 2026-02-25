@@ -144,7 +144,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
 									baseUrl: e.target.value,
 								}))
 							}
-							placeholder="https://clawdrobomaster.crabdance.com/"
+							placeholder="https://bigclawd.crabdance.com/"
 						/>
 					)}
 					<ModelPicker
