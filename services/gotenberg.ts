@@ -1,6 +1,6 @@
 export const VITE_GOTENBERG_URL =
 	import.meta.env.VITE_GOTENBERG_URL ||
-	'https://bigclawd.crabdance.com/gotenberg';
+	'https://bigclawdproxy.crabdance.com/gotenberg';
 
 /**
  * Converts a supported document type (DOCX, PPTX, etc.) to a native PDF File
