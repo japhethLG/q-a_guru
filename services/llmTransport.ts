@@ -345,7 +345,7 @@ async function* parseSSEStream(
 
 export function createTransport(config: ProviderConfig): LLMTransport {
 	if (config.type === 'antigravity-proxy') {
-		const baseUrl = config.baseUrl || 'https://clawdrobomaster.crabdance.com/';
+		const baseUrl = config.baseUrl || 'https://bigclawdproxy.crabdance.com/';
 		return createProxyTransport(baseUrl);
 	}
 	const apiKey = config.apiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
