@@ -62,7 +62,7 @@ export function useGeminiModels() {
 	// Cache key combines provider type + api key / base URL so we refetch on provider switch
 	const cacheKey =
 		providerConfig.type === 'antigravity-proxy'
-			? `proxy:${providerConfig.baseUrl || 'https://clawdrobomaster.crabdance.com/'}`
+			? `proxy:${providerConfig.baseUrl || 'https://bigclawdproxy.crabdance.com/'}`
 			: `sdk:${apiKey}`;
 
 	const [models, setModels] = useState<ModelOption[]>(
